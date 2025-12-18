@@ -1,0 +1,41 @@
+
+{
+  "short_name": "CommLink",
+  "name": "CommLink Tactical Walkie-Talkie",
+  "description": "Military-grade Peer-to-Peer communication system.",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/fluency-systems-filled/96/84cc16/radio-tower.png",
+      "type": "image/png",
+      "sizes": "96x96"
+    },
+    {
+      "src": "https://img.icons8.com/fluency-systems-filled/144/84cc16/radio-tower.png",
+      "type": "image/png",
+      "sizes": "144x144"
+    },
+    {
+      "src": "https://img.icons8.com/fluency-systems-filled/192/84cc16/radio-tower.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/fluency-systems-filled/512/84cc16/radio-tower.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#0f172a",
+  "shortcuts": [
+    {
+      "name": "Open Walkie",
+      "short_name": "Walkie",
+      "url": "/",
+      "icons": [{ "src": "https://img.icons8.com/fluency-systems-filled/96/84cc16/microphone.png", "sizes": "96x96" }]
+    }
+  ]
+}

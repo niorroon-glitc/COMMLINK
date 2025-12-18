@@ -1,0 +1,8 @@
+{
+  "name": "CommLink: Military-Grade PWA Walkie Talkie",
+  "description": "A high-fidelity Peer-to-Peer walkie talkie with military tech aesthetics, featuring real-time voice, QR frequency syncing, and tactical themes.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
