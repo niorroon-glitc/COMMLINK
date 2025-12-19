@@ -1,4 +1,3 @@
-
 declare const Peer: any;
 import { Theme } from '../types.ts';
 
@@ -9,6 +8,7 @@ export class PeerService {
   private onConnectionUpdate: (peers: string[]) => void;
   private onStreamReceived: (stream: MediaStream, peerId: string) => void;
   private onStreamEnded: (peerId: string) => void;
+  private reconnectTimer: any = null;
 
   constructor(
     onConnectionUpdate: (peers: string[]) => void,
@@ -21,7 +21,7 @@ export class PeerService {
   }
 
   async initialize(frequency: string, callsign: string): Promise<string> {
-    const peerId = `cl-${frequency}-${callsign}-${Math.random().toString(36).substring(2, 6)}`;
+    const peerId = `cl-${frequency}-${callsign.replace(/\s+/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
     
     if (!(window as any).Peer) {
       return Promise.reject("PeerJS not loaded");
@@ -42,7 +42,25 @@ export class PeerService {
         this.setupListeners();
         resolve(id);
       });
-      this.peer.on('error', (err: any) => reject(err));
+      
+      this.peer.on('disconnected', () => {
+        console.warn('Peer disconnected from server. Attempting to reconnect...');
+        this.peer.reconnect();
+      });
+
+      this.peer.on('error', (err: any) => {
+        console.error('PeerJS error:', err);
+        if (err.type === 'server-error' || err.type === 'network') {
+          // Attempt manual recovery after a delay if the built-in reconnect fails
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = setTimeout(() => {
+            if (this.peer && this.peer.disconnected) {
+              this.peer.reconnect();
+            }
+          }, 5000);
+        }
+        reject(err);
+      });
     });
   }
 
@@ -83,9 +101,16 @@ export class PeerService {
   }
 
   broadcastVoice(stream: MediaStream) {
+    if (!this.peer || this.peer.destroyed) return;
     this.connections.forEach((_conn, peerId) => {
-      const call = this.peer.call(peerId, stream);
-      this.calls.set(peerId, call);
+      try {
+        const call = this.peer.call(peerId, stream);
+        if (call) {
+          this.calls.set(peerId, call);
+        }
+      } catch (err) {
+        console.error(`Failed to call peer ${peerId}:`, err);
+      }
     });
   }
 
@@ -97,6 +122,7 @@ export class PeerService {
   }
 
   destroy() {
+    clearTimeout(this.reconnectTimer);
     if (this.peer) {
       this.peer.destroy();
     }
