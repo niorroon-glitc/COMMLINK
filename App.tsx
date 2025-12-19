@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { THEMES, TRANSLATIONS, DEFAULT_CALLSIGN, DEFAULT_FREQUENCY } from './constants';
-import { AppState, UserIdentity, Theme } from './types';
-import { audioService } from './services/audioService';
-import { PeerService } from './services/peerService';
+import { THEMES, TRANSLATIONS, DEFAULT_CALLSIGN, DEFAULT_FREQUENCY } from './constants.ts';
+import { AppState, UserIdentity, Theme } from './types.ts';
+import { audioService } from './services/audioService.ts';
+import { PeerService } from './services/peerService.ts';
 
 // --- Sub-components ---
 
@@ -142,7 +142,6 @@ const QrPanel: React.FC<{
         .catch(err => {
           console.error("Camera access denied", err);
           setIsScanning(false);
-          alert("Permiso de cámara denegado o no disponible.");
         });
     }
 
@@ -159,7 +158,7 @@ const QrPanel: React.FC<{
         style={{ backgroundColor: theme.background, borderColor: theme.accent }}
       >
         <div className="w-full flex justify-between items-center mb-8">
-          <button onClick={onClose} className="flex items-center space-x-2 opacity-60 hover:opacity-100 transition-opacity" style={{ color: theme.text }}>
+          <button onClick={onClose} className="flex items-center space-x-2 opacity-60" style={{ color: theme.text }}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -269,13 +268,13 @@ const SettingsPanel: React.FC<{
             <div className="flex-1">
               <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.lang_label}</label>
               <div className="flex border-2 rounded-xl overflow-hidden" style={{ borderColor: theme.secondary }}>
-                <button onClick={() => setLang('es')} className={`flex-1 py-3 text-[10px] font-black transition-colors ${lang === 'es' ? 'bg-white/10' : 'opacity-40 hover:bg-white/5'}`}>ESP</button>
-                <button onClick={() => setLang('en')} className={`flex-1 py-3 text-[10px] font-black transition-colors ${lang === 'en' ? 'bg-white/10' : 'opacity-40 hover:bg-white/5'}`}>ENG</button>
+                <button onClick={() => setLang('es')} className={`flex-1 py-3 text-[10px] font-black ${lang === 'es' ? 'bg-white/10' : 'opacity-40'}`}>ESP</button>
+                <button onClick={() => setLang('en')} className={`flex-1 py-3 text-[10px] font-black ${lang === 'en' ? 'bg-white/10' : 'opacity-40'}`}>ENG</button>
               </div>
             </div>
             <div className="flex-1">
               <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.audio_fx_label}</label>
-              <button onClick={() => setAudioFx(!audioFx)} className={`w-full py-3 border-2 rounded-xl text-[10px] font-black transition-all ${audioFx ? 'border-green-500 text-green-500 shadow-[0_0_10px_green]' : 'opacity-40'}`} style={{ borderColor: audioFx ? '' : theme.secondary }}>{audioFx ? t.fx_on : t.fx_off}</button>
+              <button onClick={() => setAudioFx(!audioFx)} className={`w-full py-3 border-2 rounded-xl text-[10px] font-black ${audioFx ? 'border-green-500 text-green-500 shadow-[0_0_10px_green]' : 'opacity-40'}`} style={{ borderColor: audioFx ? '' : theme.secondary }}>{audioFx ? t.fx_on : t.fx_off}</button>
             </div>
           </div>
 
@@ -283,7 +282,7 @@ const SettingsPanel: React.FC<{
              <label className="text-[10px] font-black opacity-50 block mb-4 uppercase tracking-widest">{t.theme_label}</label>
              <div className="grid grid-cols-2 gap-3 mb-6">
                 {THEMES.map(th => (
-                  <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 flex items-center justify-between text-[9px] font-black rounded-lg transition-all ${theme.id === th.id ? 'scale-105 shadow-lg' : 'opacity-40 grayscale hover:opacity-70'}`} style={{ borderColor: theme.id === th.id ? th.accent : 'transparent', backgroundColor: th.primary, color: th.accent }}>
+                  <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 flex items-center justify-between text-[9px] font-black rounded-lg transition-all ${theme.id === th.id ? 'scale-105' : 'opacity-40 grayscale'}`} style={{ borderColor: theme.id === th.id ? th.accent : 'transparent', backgroundColor: th.primary, color: th.accent }}>
                     {th.name}<div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: th.accent }} />
                   </button>
                 ))}
@@ -302,8 +301,8 @@ const SettingsPanel: React.FC<{
              <span className="text-[10px] font-black opacity-30 mb-2 uppercase tracking-[0.4em]">{t.author_label}</span>
              <span className="text-xl font-black italic mb-6 font-orbitron" style={{ color: theme.accent }}>Mc Wolf</span>
              <div className="flex space-x-12">
-              <a href="https://www.facebook.com/share/1aJC2QMujs/" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-all hover:scale-110" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
-              <a href="https://www.instagram.com/mc_roony03?igsh=MW41bmh6ZmpyZXI4bg==" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-all hover:scale-110" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M12 2c2.717 0 3.056.01 4.122.058 1.066.048 1.79.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.637.417 1.361.465 2.427.048 1.066.058 1.405.058 4.122s-.01 3.056-.058 4.122c-.048 1.066-.218 1.79-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.637.247-1.361.417-2.427.465-1.066.048-1.405.058-4.122.058s-3.056-.01-4.122-.058c-1.066-.048-1.79-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.637-.417-1.361-.465-2.427-.048-1.066-.058-1.405-.058-4.122s.01-3.056.058-4.122c.048-1.066.218-1.79.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 3.058c.637-.247 1.361-.417 2.427-.465C8.944 2.01 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/></svg></a>
+              <a href="https://www.facebook.com/share/1aJC2QMujs/" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
+              <a href="https://www.instagram.com/mc_roony03?igsh=MW41bmh6ZmpyZXI4bg==" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M12 2c2.717 0 3.056.01 4.122.058 1.066.048 1.79.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.637.417 1.361.465 2.427.048 1.066.058 1.405.058 4.122s-.01 3.056-.058 4.122c-.048 1.066-.218 1.79-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.637.247-1.361.417-2.427.465-1.066.048-1.405.058-4.122.058s-3.056-.01-4.122-.058c-1.066-.048-1.79-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.637-.417-1.361-.465-2.427-.048-1.066-.058-1.405-.058-4.122s.01-3.056.058-4.122c.048-1.066.218-1.79.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 3.058c.637-.247 1.361-.417 2.427-.465C8.944 2.01 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/></svg></a>
              </div>
           </div>
         </div>
