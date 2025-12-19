@@ -7,20 +7,15 @@
   <title>CommLink | Tactical PWA</title>
   
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#020617">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
-  <!-- Librerías de Alto Nivel -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Librerías Externas -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-  
-  <!-- React & Babel Standalone para GitHub Pages -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   
@@ -30,20 +25,14 @@
       --safe-area-bottom: env(safe-area-inset-bottom);
     }
     body {
-      background-color: #0f172a;
+      background-color: #020617;
       font-family: 'JetBrains Mono', monospace;
       margin: 0; padding: 0;
       height: 100dvh; overflow: hidden;
       position: fixed; width: 100%;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
-    }
-    .tactile-button-shadow {
-      box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
-    }
-    .tactile-button-active {
-      transform: translateY(2px) scale(0.98);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.4);
+      touch-action: none;
     }
     .military-grid {
       background-image: 
@@ -52,23 +41,38 @@
       background-size: 30px 30px;
     }
     .scanline {
-      width: 100%; height: 4px;
-      background: linear-gradient(to bottom, transparent, rgba(132, 204, 22, 0.1), transparent);
+      width: 100%; height: 2px;
+      background: rgba(132, 204, 22, 0.2);
       position: absolute; top: 0;
-      animation: scan 6s linear infinite;
+      box-shadow: 0 0 10px rgba(132, 204, 22, 0.4);
+      animation: scan 4s linear infinite;
       z-index: 50; pointer-events: none;
     }
     @keyframes scan { 0% { top: -5%; } 100% { top: 105%; } }
-    @keyframes animate-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
-    .animate-scan { animation: animate-scan 2s linear infinite; }
+    @keyframes laser-sweep { 0% { top: 0%; } 100% { top: 100%; } }
+    .animate-laser { animation: laser-sweep 2s linear infinite; }
+    
     .font-orbitron { font-family: 'Orbitron', sans-serif; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background-color: #020617;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
   </style>
 <script type="importmap">
 {
   "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
@@ -76,325 +80,6 @@
 <body class="military-grid">
   <div class="scanline"></div>
   <div id="root"></div>
-
-  <script type="text/babel">
-    const { useState, useEffect, useRef, useMemo } = React;
-
-    // --- CONSTANTES ---
-    const THEMES = [
-      { id: 'military', name: 'Tactical OD', primary: '#1e293b', secondary: '#334155', accent: '#84cc16', background: '#0f172a', text: '#f8fafc', glow: 'rgba(132, 204, 22, 0.5)' },
-      { id: 'cyberpunk', name: 'Night City', primary: '#111827', secondary: '#1f2937', accent: '#f472b6', background: '#030712', text: '#ec4899', glow: 'rgba(244, 114, 182, 0.5)' },
-      { id: 'stealth', name: 'Ghost Ops', primary: '#18181b', secondary: '#27272a', accent: '#ef4444', background: '#09090b', text: '#ffffff', glow: 'rgba(239, 68, 68, 0.5)' },
-      { id: 'matrix', name: 'The Source', primary: '#022c22', secondary: '#064e3b', accent: '#22c55e', background: '#000000', text: '#4ade80', glow: 'rgba(34, 197, 94, 0.5)' },
-      { id: 'desert', name: 'Desert Storm', primary: '#451a03', secondary: '#78350f', accent: '#f59e0b', background: '#291105', text: '#fbbf24', glow: 'rgba(245, 158, 11, 0.5)' },
-      { id: 'arctic', name: 'Arctic Ops', primary: '#0c4a6e', secondary: '#075985', accent: '#38bdf8', background: '#082f49', text: '#e0f2fe', glow: 'rgba(56, 189, 248, 0.5)' },
-      { id: 'toxic', name: 'Nuclear Haz', primary: '#3f6212', secondary: '#4d7c0f', accent: '#a3e635', background: '#1a2e05', text: '#d9f99d', glow: 'rgba(163, 230, 53, 0.5)' },
-      { id: 'blood', name: 'Blood Moon', primary: '#450a0a', secondary: '#7f1d1d', accent: '#ef4444', background: '#1a0505', text: '#fca5a5', glow: 'rgba(239, 68, 68, 0.5)' },
-      { id: 'void', name: 'Deep Space', primary: '#2e1065', secondary: '#4c1d95', accent: '#a855f7', background: '#0f0728', text: '#e9d5ff', glow: 'rgba(168, 85, 247, 0.5)' },
-      { id: 'vanguard', name: 'Elite Guard', primary: '#422006', secondary: '#713f12', accent: '#fbbf24', background: '#1c1917', text: '#fef3c7', glow: 'rgba(251, 191, 36, 0.5)' },
-      { id: 'custom', name: 'Custom HUD', primary: '#1e293b', secondary: '#334155', accent: '#84cc16', background: '#0f172a', text: '#f8fafc', glow: 'rgba(132, 204, 22, 0.5)' }
-    ];
-
-    const TRANSLATIONS = {
-      es: {
-        sector_freq: "FRECUENCIA DE SECTOR",
-        transmitting: "TRANSMITIENDO",
-        hold_to_comm: "MANTENER PARA HABLAR",
-        latched_on: "MICRO BLOQUEADO",
-        ops_config: "CONFIGURACIÓN TÁCTICA",
-        back: "REGRESAR",
-        callsign_label: "IDENTIFICACIÓN (CALLSIGN)",
-        freq_label: "CÓDIGO DE SALA (6 DÍGITOS)",
-        theme_label: "TEMA DE VISUALIZACIÓN HUD",
-        lang_label: "IDIOMA DEL SISTEMA",
-        audio_fx_label: "EFECTOS DE RADIO (SQUELCH)",
-        node_secured: "NODO SEGURO",
-        uplink_active: "UPLINK ACTIVO",
-        downlink_active: "DOWNLINK ACTIVO",
-        incoming: "COMUNICACIÓN ENTRANTE...",
-        sync_title: "PUENTE DE FRECUENCIA",
-        scan_btn: "ESCANEAR CÓDIGO",
-        exit_sync: "SALIR DE INTERFAZ",
-        hands_free: "MANO ALZADA",
-        active_units: "UNIDADES ACTIVAS",
-        fx_on: "ACTIVO",
-        fx_off: "SILENCIO",
-        custom_color: "COLOR PERSONALIZADO",
-        author_label: "AUTOR DEL CONCEPTO"
-      },
-      en: {
-        sector_freq: "SECTOR FREQUENCY",
-        transmitting: "TRANSMITTING",
-        hold_to_comm: "HOLD TO COMM",
-        latched_on: "MIC LATCHED ON",
-        ops_config: "TACTICAL CONFIG",
-        back: "RETURN",
-        callsign_label: "PERSONAL ID (CALLSIGN)",
-        freq_label: "ROOM CODE (6 DIGITS)",
-        theme_label: "HUD VISUALIZATION THEME",
-        lang_label: "SYSTEM LANGUAGE",
-        audio_fx_label: "RADIO EFFECTS (SQUELCH)",
-        node_secured: "NODE SECURED",
-        uplink_active: "UPLINK ACTIVE",
-        downlink_active: "DOWNLINK ACTIVE",
-        incoming: "INCOMING COMMS...",
-        sync_title: "FREQUENCY BRIDGE",
-        scan_btn: "SCAN ROOM CODE",
-        exit_sync: "EXIT SYNC INTERFACE",
-        hands_free: "HANDS FREE",
-        active_units: "ACTIVE UNITS",
-        fx_on: "ACTIVE",
-        fx_off: "SILENT",
-        custom_color: "CUSTOM COLOR",
-        author_label: "CONCEPT AUTHOR"
-      }
-    };
-
-    // --- SERVICIOS ---
-    class AudioService {
-      constructor() { this.ctx = null; this.isEnabled = true; }
-      initCtx() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); }
-      createSquelch(duration, volume) {
-        if (!this.ctx) return;
-        const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * duration, this.ctx.sampleRate);
-        const output = buffer.getChannelData(0);
-        for (let i = 0; i < buffer.length; i++) output[i] = Math.random() * 2 - 1;
-        const source = this.ctx.createBufferSource(); source.buffer = buffer;
-        const filter = this.ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1000;
-        const gain = this.ctx.createGain(); gain.gain.setValueAtTime(volume, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-        source.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
-        source.start();
-      }
-      playBeep(type) {
-        if (!this.isEnabled && type !== 'click') return;
-        this.initCtx();
-        if (type === 'start') this.createSquelch(0.15, 0.15);
-        else if (type === 'end') this.createSquelch(0.35, 0.12);
-        else if (type === 'receive') this.createSquelch(0.08, 0.08);
-        else if (type === 'click') {
-          const osc = this.ctx.createOscillator(); const g = this.ctx.createGain();
-          osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-          g.gain.setValueAtTime(0.05, this.ctx.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
-          osc.connect(g); g.connect(this.ctx.destination);
-          osc.start(); osc.stop(this.ctx.currentTime + 0.03);
-        }
-      }
-    }
-    const audioService = new AudioService();
-
-    // --- COMPONENTES ---
-    const App = () => {
-      const [identity, setIdentity] = useState(() => JSON.parse(localStorage.getItem('cl_id')) || { callsign: 'RECRUIT', frequency: '444222' });
-      const [theme, setTheme] = useState(() => JSON.parse(localStorage.getItem('cl_theme')) || THEMES[0]);
-      const [lang, setLang] = useState(localStorage.getItem('cl_lang') || 'es');
-      const [audioFx, setAudioFx] = useState(localStorage.getItem('cl_audiofx') !== 'false');
-      
-      const [peers, setPeers] = useState([]);
-      const [status, setStatus] = useState('IDLE');
-      const [receiving, setReceiving] = useState(false);
-      const [handsFree, setHandsFree] = useState(false);
-      const [showSettings, setShowSettings] = useState(false);
-      const [showQr, setShowQr] = useState(false);
-
-      const peerRef = useRef(null); const audioRef = useRef(null); const streamRef = useRef(null);
-      const t = TRANSLATIONS[lang];
-
-      useEffect(() => {
-        localStorage.setItem('cl_id', JSON.stringify(identity));
-        localStorage.setItem('cl_theme', JSON.stringify(theme));
-        localStorage.setItem('cl_lang', lang);
-        localStorage.setItem('cl_audiofx', audioFx);
-        audioService.isEnabled = audioFx;
-      }, [identity, theme, lang, audioFx]);
-
-      useEffect(() => {
-        const initPeer = async () => {
-          if (peerRef.current) peerRef.current.destroy();
-          setStatus('CONNECTING');
-          const peerId = `cl-${identity.frequency}-${identity.callsign}-${Math.random().toString(36).substring(2, 6)}`;
-          const p = new Peer(peerId, { debug: 1, config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
-          
-          p.on('open', () => {
-            setStatus('READY');
-            p.on('connection', c => {
-              c.on('open', () => setPeers(prev => [...new Set([...prev, c.peer])]));
-              c.on('close', () => setPeers(prev => prev.filter(id => id !== c.peer)));
-            });
-            p.on('call', call => {
-              call.answer();
-              call.on('stream', s => { setReceiving(true); audioService.playBeep('receive'); if (audioRef.current) audioRef.current.srcObject = s; });
-              call.on('close', () => setReceiving(false));
-            });
-          });
-          p.on('error', () => setStatus('ERROR'));
-          peerRef.current = p;
-        };
-        initPeer(); return () => peerRef.current?.destroy();
-      }, [identity.frequency]);
-
-      const txStart = async () => {
-        if (status !== 'READY' || receiving) return;
-        try {
-          const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-          streamRef.current = s; setStatus('TRANSMITTING'); audioService.playBeep('start');
-          peers.forEach(id => peerRef.current.call(id, s));
-        } catch (e) { setHandsFree(false); }
-      };
-
-      const txEnd = () => {
-        if (status !== 'TRANSMITTING') return;
-        setStatus('READY'); audioService.playBeep('end');
-        if (streamRef.current) { streamRef.current.getTracks().forEach(track => track.stop()); streamRef.current = null; }
-      };
-
-      return (
-        <div className="h-full flex flex-col p-8 transition-colors duration-500" style={{ color: theme.text, backgroundColor: theme.background }}>
-          <audio ref={audioRef} autoPlay />
-          
-          <header className="flex justify-between items-start z-10">
-            <div>
-              <h1 className="text-3xl font-black italic font-orbitron" style={{ color: theme.accent }}>COMMLINK</h1>
-              <div className="flex items-center mt-2">
-                <div className={`w-2 h-2 rounded-full mr-2 ${status === 'TRANSMITTING' || handsFree ? 'bg-orange-500 animate-pulse' : 'bg-green-500 animate-pulse'}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
-                  {status === 'TRANSMITTING' ? t.uplink_active : receiving ? t.downlink_active : t.node_secured}
-                </span>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-[9px] font-black opacity-40">CALLSIGN</div>
-              <div className="text-xl font-black uppercase tracking-tighter" style={{ color: theme.accent }}>{identity.callsign}</div>
-              <div className="text-[9px] font-black opacity-30 mt-1 uppercase">{t.active_units}: {peers.length + 1}</div>
-            </div>
-          </header>
-
-          <main className="flex-grow flex flex-col items-center justify-center space-y-12 z-10">
-            <div className="p-6 border-2 rounded-xl text-center" style={{ borderColor: theme.accent, backgroundColor: theme.primary }}>
-              <span className="text-[9px] font-black opacity-50 tracking-[0.3em] uppercase">{t.sector_freq}</span>
-              <div className="text-5xl font-black font-orbitron tracking-widest mt-2" style={{ color: theme.accent }}>
-                {identity.frequency.slice(0,3)}<span className="opacity-30">.</span>{identity.frequency.slice(3)}
-              </div>
-            </div>
-
-            <div className="relative">
-              {(status === 'TRANSMITTING' || handsFree) && <div className="absolute inset-0 rounded-full animate-ping opacity-25" style={{ backgroundColor: theme.accent }} />}
-              <button
-                onMouseDown={!handsFree ? txStart : undefined} onMouseUp={!handsFree ? txEnd : undefined}
-                onTouchStart={e => { if (!handsFree) { e.preventDefault(); txStart(); } }}
-                onTouchEnd={e => { if (!handsFree) { e.preventDefault(); txEnd(); } }}
-                className={`relative w-52 h-52 rounded-full border-8 tactile-button-shadow transition-all flex flex-col items-center justify-center ${status === 'TRANSMITTING' || handsFree ? 'tactile-button-active' : ''}`}
-                style={{ borderColor: status === 'TRANSMITTING' || handsFree ? theme.accent : theme.secondary, backgroundColor: status === 'TRANSMITTING' || handsFree ? theme.primary : theme.secondary }}
-              >
-                <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: status === 'TRANSMITTING' || handsFree ? theme.accent : theme.text }}>
-                  <path strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <span className="mt-2 text-[10px] font-black uppercase tracking-widest text-center px-4">
-                  {status === 'TRANSMITTING' || handsFree ? (handsFree ? t.latched_on : t.transmitting) : t.hold_to_comm}
-                </span>
-              </button>
-            </div>
-
-            <button onClick={() => { audioService.playBeep('click'); setHandsFree(!handsFree); handsFree ? txEnd() : txStart(); }} className={`flex items-center space-x-3 px-6 py-3 border-2 rounded-lg ${handsFree ? 'animate-pulse' : 'opacity-60'}`} style={{ borderColor: handsFree ? theme.accent : theme.secondary }}>
-              <div className={`w-3 h-3 rounded-full ${handsFree ? 'bg-orange-500' : 'bg-gray-600'}`} />
-              <span className="text-[10px] font-black uppercase tracking-widest">{t.hands_free} {handsFree ? 'ON' : 'OFF'}</span>
-            </button>
-          </main>
-
-          <footer className="pb-8 flex justify-between items-center z-10">
-            <button onClick={() => { audioService.playBeep('click'); setShowSettings(true); }} className="p-4 border-2 rounded-xl" style={{ borderColor: theme.secondary }}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
-                <path strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-            </button>
-            <button onClick={() => { audioService.playBeep('click'); setShowQr(true); }} className="p-4 border-2 rounded-xl" style={{ borderColor: theme.secondary }}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
-                <path strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
-              </svg>
-            </button>
-          </footer>
-
-          {showSettings && (
-            <div className="fixed inset-0 z-[100] bg-black/95 p-8 flex flex-col overflow-y-auto">
-              <div className="flex justify-between items-center mb-10">
-                <h2 className="text-2xl font-black font-orbitron uppercase" style={{ color: theme.accent }}>{t.ops_config}</h2>
-                <button onClick={() => setShowSettings(false)} className="px-4 py-2 border-2 rounded-lg" style={{ borderColor: theme.accent }}>{t.back}</button>
-              </div>
-              <div className="space-y-8 pb-10">
-                <div>
-                  <label className="text-[10px] opacity-50 block mb-2">{t.callsign_label}</label>
-                  <input value={identity.callsign} onChange={e => setIdentity({...identity, callsign: e.target.value.toUpperCase()})} className="w-full bg-black/40 border-2 p-4 text-xl font-black rounded-xl" style={{ borderColor: theme.secondary, color: theme.accent }} />
-                </div>
-                <div>
-                  <label className="text-[10px] opacity-50 block mb-2">{t.freq_label}</label>
-                  <input value={identity.frequency} maxLength={6} onChange={e => setIdentity({...identity, frequency: e.target.value.replace(/\D/g,'')})} className="w-full bg-black/40 border-2 p-4 text-xl font-black rounded-xl tracking-widest" style={{ borderColor: theme.secondary, color: theme.accent }} />
-                </div>
-                <div className="flex space-x-4">
-                  <div className="flex-1">
-                    <label className="text-[10px] opacity-50 block mb-2">{t.lang_label}</label>
-                    <div className="flex border-2 rounded-lg overflow-hidden" style={{ borderColor: theme.secondary }}>
-                      <button onClick={() => setLang('es')} className={`flex-1 py-3 text-[10px] ${lang === 'es' ? 'bg-white/10' : 'opacity-40'}`}>ESP</button>
-                      <button onClick={() => setLang('en')} className={`flex-1 py-3 text-[10px] ${lang === 'en' ? 'bg-white/10' : 'opacity-40'}`}>ENG</button>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-[10px] opacity-50 block mb-2">{t.audio_fx_label}</label>
-                    <button onClick={() => setAudioFx(!audioFx)} className={`w-full py-3 border-2 rounded-lg text-[10px] ${audioFx ? 'text-green-500' : 'opacity-40'}`} style={{ borderColor: audioFx ? '#22c55e' : theme.secondary }}>{audioFx ? t.fx_on : t.fx_off}</button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] opacity-50 block mb-4">{t.theme_label}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {THEMES.map(th => (
-                      <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 rounded-lg text-[9px] font-black flex justify-between items-center transition-all ${theme.id === th.id ? '' : 'opacity-40 grayscale'}`} style={{ borderColor: theme.id === th.id ? th.accent : 'transparent', backgroundColor: th.primary, color: th.accent }}>
-                        {th.name}<div className="w-2 h-2 rounded-full" style={{ backgroundColor: th.accent }} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="p-4 border-2 rounded-xl" style={{ borderColor: theme.secondary }}>
-                  <label className="text-[10px] opacity-60 block mb-2">{t.custom_color}</label>
-                  <input type="color" value={theme.accent} onChange={e => setTheme({...theme, id: 'custom', accent: e.target.value, glow: `${e.target.value}88`})} className="w-full h-10 bg-transparent cursor-pointer" />
-                </div>
-                <div className="pt-10 border-t border-white/10 flex flex-col items-center">
-                  <span className="text-[10px] opacity-30 mb-2">{t.author_label}</span>
-                  <span className="text-xl font-black italic font-orbitron" style={{ color: theme.accent }}>Mc Wolf</span>
-                  <div className="flex space-x-8 mt-4">
-                    <a href="https://www.facebook.com/share/1aJC2QMujs/" target="_blank" className="opacity-50 hover:opacity-100 transition-opacity" style={{ color: theme.accent }}><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
-                    <a href="https://www.instagram.com/mc_roony03?igsh=MW41bmh6ZmpyZXI4bg==" target="_blank" className="opacity-50 hover:opacity-100 transition-opacity" style={{ color: theme.accent }}><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2c2.717 0 3.056.01 4.122.058 1.066.048 1.79.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.637.417 1.361.465 2.427.048 1.066.058 1.405.058 4.122s-.01 3.056-.058 4.122c-.048 1.066-.218 1.79-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.637.247-1.361.417-2.427.465-1.066.048-1.405.058-4.122.058s-3.056-.01-4.122-.058c-1.066-.048-1.79-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.637-.417-1.361-.465-2.427-.048-1.066-.058-1.405-.058-4.122s.01-3.056.058-4.122c.048-1.066.218-1.79.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 3.058c.637-.247 1.361-.417 2.427-.465C8.944 2.01 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/></svg></a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showQr && (
-            <div className="fixed inset-0 z-[110] bg-black/95 p-8 flex flex-col items-center justify-center">
-              <div className="w-full max-w-sm border-2 p-8 rounded-2xl flex flex-col items-center" style={{ borderColor: theme.accent, backgroundColor: theme.background }}>
-                <h2 className="text-xl font-black font-orbitron mb-8" style={{ color: theme.accent }}>{t.sync_title}</h2>
-                <div className="w-64 h-64 bg-white/5 rounded-xl border-2 flex items-center justify-center mb-8" style={{ borderColor: theme.secondary }}>
-                  <canvas id="qr-canvas"></canvas>
-                </div>
-                <button onClick={() => setShowQr(false)} className="w-full py-4 border-2 font-black uppercase text-xs" style={{ borderColor: theme.accent, color: theme.accent }}>{t.back}</button>
-              </div>
-            </div>
-          )}
-
-          {receiving && (
-            <div className="fixed top-24 left-0 right-0 flex justify-center z-50 pointer-events-none">
-              <div className="px-6 py-2 bg-red-600 text-white font-black rounded-full animate-pulse flex items-center space-x-3 shadow-[0_0_20px_red]">
-                <div className="w-2 h-2 bg-white rounded-full animate-ping" />
-                <span className="text-[10px] uppercase tracking-[0.2em]">{t.incoming}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
+  <script type="module" src="index.tsx"></script>
 </body>
 </html>

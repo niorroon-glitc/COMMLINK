@@ -1,5 +1,6 @@
 
 declare const Peer: any;
+import { Theme } from '../types.ts';
 
 export class PeerService {
   private peer: any = null;
@@ -22,7 +23,11 @@ export class PeerService {
   async initialize(frequency: string, callsign: string): Promise<string> {
     const peerId = `cl-${frequency}-${callsign}-${Math.random().toString(36).substring(2, 6)}`;
     
-    this.peer = new Peer(peerId, {
+    if (!(window as any).Peer) {
+      return Promise.reject("PeerJS not loaded");
+    }
+
+    this.peer = new (window as any).Peer(peerId, {
       debug: 1,
       config: {
         iceServers: [
@@ -47,7 +52,7 @@ export class PeerService {
     });
 
     this.peer.on('call', (call: any) => {
-      call.answer(); // Answer incoming call automatically
+      call.answer();
       call.on('stream', (remoteStream: MediaStream) => {
         this.onStreamReceived(remoteStream, call.peer);
       });
@@ -77,12 +82,6 @@ export class PeerService {
     this.onConnectionUpdate(Array.from(this.connections.keys()));
   }
 
-  async connectToPeer(targetPeerId: string) {
-    if (this.connections.has(targetPeerId)) return;
-    const conn = this.peer.connect(targetPeerId);
-    this.handleIncomingConnection(conn);
-  }
-
   broadcastVoice(stream: MediaStream) {
     this.connections.forEach((_conn, peerId) => {
       const call = this.peer.call(peerId, stream);
@@ -91,7 +90,9 @@ export class PeerService {
   }
 
   stopBroadcast() {
-    this.calls.forEach((call) => call.close());
+    this.calls.forEach((call) => {
+      try { call.close(); } catch(e) {}
+    });
     this.calls.clear();
   }
 
