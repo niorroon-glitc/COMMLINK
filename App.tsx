@@ -11,12 +11,12 @@ const ScanLine: React.FC = () => <div className="scanline" />;
 
 const FrequencyDisplay: React.FC<{ value: string; theme: Theme; t: any }> = ({ value, theme, t }) => (
   <div 
-    className="flex flex-col items-center justify-center p-4 rounded-lg border-2"
+    className="flex flex-col items-center justify-center p-6 rounded-xl border-2 shadow-lg"
     style={{ borderColor: theme.accent, backgroundColor: theme.primary }}
   >
-    <span className="text-[10px] uppercase opacity-60 mb-1 font-bold tracking-[0.2em]" style={{ color: theme.text }}>{t.sector_freq}</span>
-    <div className="text-4xl font-black tracking-widest font-mono" style={{ color: theme.accent }}>
-      {value.slice(0, 3)}<span className="opacity-40">.</span>{value.slice(3)}
+    <span className="text-[10px] uppercase opacity-50 mb-1 font-black tracking-[0.3em]" style={{ color: theme.text }}>{t.sector_freq}</span>
+    <div className="text-5xl font-black tracking-widest font-orbitron" style={{ color: theme.accent }}>
+      {value.slice(0, 3)}<span className="opacity-30">.</span>{value.slice(3)}
     </div>
   </div>
 );
@@ -31,7 +31,7 @@ const PttButton: React.FC<{
   t: any;
 }> = ({ onStart, onEnd, active, theme, disabled, handsFreeActive, t }) => {
   return (
-    <div className="relative group">
+    <div className="relative">
       {(active || handsFreeActive) && (
         <div 
           className="absolute inset-0 rounded-full animate-ping opacity-25"
@@ -48,7 +48,7 @@ const PttButton: React.FC<{
           relative w-52 h-52 rounded-full border-8 tactile-button-shadow transition-all duration-75
           flex items-center justify-center flex-col
           ${(active || handsFreeActive) ? 'tactile-button-active' : ''}
-          ${disabled ? 'opacity-50 grayscale' : 'cursor-pointer'}
+          ${disabled ? 'opacity-50 grayscale' : 'cursor-pointer active:scale-95'}
         `}
         style={{ 
           borderColor: (active || handsFreeActive) ? theme.accent : theme.secondary,
@@ -76,7 +76,6 @@ const PttButton: React.FC<{
   );
 };
 
-// Fixed missing QrPanel component
 const QrPanel: React.FC<{
   frequency: string;
   theme: Theme;
@@ -90,14 +89,13 @@ const QrPanel: React.FC<{
   const qrRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    // Generate QR code using QRious from CDN
     // @ts-ignore
     if (!isScanning && qrRef.current && window.QRious) {
       // @ts-ignore
       new window.QRious({
         element: qrRef.current,
         value: frequency,
-        size: 200,
+        size: 240,
         background: 'transparent',
         foreground: theme.accent,
       });
@@ -108,22 +106,7 @@ const QrPanel: React.FC<{
     let animationFrameId: number;
     let stream: MediaStream | null = null;
 
-    const startScan = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-          tick();
-        }
-      } catch (err) {
-        console.error("Camera access denied", err);
-        setIsScanning(false);
-      }
-    };
-
     const tick = () => {
-      // Scan QR code using jsQR from CDN
       // @ts-ignore
       if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current && window.jsQR) {
         const canvas = canvasRef.current;
@@ -135,9 +118,7 @@ const QrPanel: React.FC<{
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           // @ts-ignore
-          const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert",
-          });
+          const code = window.jsQR(imageData.data, imageData.width, imageData.height);
           if (code) {
             audioService.playBeep('click');
             onScan(code.data);
@@ -149,7 +130,19 @@ const QrPanel: React.FC<{
     };
 
     if (isScanning) {
-      startScan();
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(s => {
+          stream = s;
+          if (videoRef.current) {
+            videoRef.current.srcObject = s;
+            videoRef.current.play();
+            tick();
+          }
+        })
+        .catch(err => {
+          console.error("Camera access denied", err);
+          setIsScanning(false);
+        });
     }
 
     return () => {
@@ -159,9 +152,9 @@ const QrPanel: React.FC<{
   }, [isScanning, onScan]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md">
       <div 
-        className="w-full max-w-lg p-8 rounded-2xl border-2 shadow-2xl flex flex-col items-center"
+        className="w-full max-w-sm p-8 rounded-2xl border-2 flex flex-col items-center"
         style={{ backgroundColor: theme.background, borderColor: theme.accent }}
       >
         <div className="w-full flex justify-between items-center mb-8">
@@ -171,18 +164,18 @@ const QrPanel: React.FC<{
             </svg>
             <span className="text-[10px] font-black uppercase tracking-widest">{t.back}</span>
           </button>
-          <h2 className="text-xl font-black uppercase tracking-tighter italic" style={{ color: theme.accent }}>
+          <h2 className="text-xl font-black font-orbitron uppercase tracking-tighter italic" style={{ color: theme.accent }}>
             {t.sync_title}
           </h2>
         </div>
 
-        <div className="relative w-full aspect-square max-w-[280px] bg-black/40 rounded-2xl border-2 overflow-hidden flex items-center justify-center mb-8" style={{ borderColor: theme.secondary }}>
+        <div className="relative w-full aspect-square bg-black/40 rounded-xl border-2 overflow-hidden flex items-center justify-center mb-8" style={{ borderColor: theme.secondary }}>
           {isScanning ? (
             <>
               <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline />
               <canvas ref={canvasRef} className="hidden" />
-              <div className="absolute inset-0 border-2 border-dashed border-white/20 animate-pulse pointer-events-none" />
-              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/50 shadow-[0_0_10px_red] animate-scan" />
+              <div className="absolute inset-0 border-2 border-dashed border-white/10 animate-pulse pointer-events-none" />
+              <div className="absolute top-1/2 left-0 right-0 h-1 bg-red-500/50 shadow-[0_0_15px_red] animate-scan" />
             </>
           ) : (
             <canvas ref={qrRef} />
@@ -191,7 +184,7 @@ const QrPanel: React.FC<{
 
         <button 
           onClick={() => { audioService.playBeep('click'); setIsScanning(!isScanning); }}
-          className="w-full p-4 font-black uppercase tracking-widest border-2 transition-all flex items-center justify-center space-x-3"
+          className="w-full py-4 border-2 font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-3 transition-all active:scale-95"
           style={{ borderColor: theme.accent, color: theme.accent }}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,186 +217,89 @@ const SettingsPanel: React.FC<{
     setIdentity({ ...identity, frequency: rnd });
   };
 
+  const handleCustomColor = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const color = e.target.value;
+    setTheme({ ...THEMES.find(t => t.id === 'custom')!, accent: color, glow: `${color}88` });
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-lg">
       <div 
         className="w-full max-w-lg p-8 rounded-2xl border-2 shadow-2xl overflow-y-auto max-h-[92vh] flex flex-col"
         style={{ backgroundColor: theme.background, borderColor: theme.accent }}
       >
-        {/* Navigation Header */}
-        <div className="flex justify-between items-center mb-8">
-          <button 
-            onClick={onClose}
-            className="flex items-center space-x-2 opacity-60 hover:opacity-100 transition-opacity"
-            style={{ color: theme.text }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span className="text-[10px] font-black uppercase tracking-widest">{t.back}</span>
-          </button>
-          <div className="text-[9px] px-3 py-1 border-2 rounded-full font-black uppercase tracking-tighter" style={{ borderColor: theme.secondary, color: theme.secondary }}>
-            {lang === 'es' ? 'SISTEMA ACTIVO' : 'SYSTEM ACTIVE'}
-          </div>
+        <div className="flex justify-between items-center mb-10">
+          <h2 className="text-2xl font-black uppercase font-orbitron italic" style={{ color: theme.accent }}>{t.ops_config}</h2>
+          <button onClick={onClose} className="text-[10px] font-black uppercase tracking-widest border-2 px-4 py-2 rounded-lg active:scale-95" style={{ borderColor: theme.accent, color: theme.accent }}>{t.back}</button>
         </div>
 
-        <h2 className="text-2xl font-black uppercase tracking-tighter mb-8 italic" style={{ color: theme.accent }}>
-          {t.ops_config}
-        </h2>
-        
         <div className="space-y-8 flex-grow">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Language Switcher */}
-            <div>
-              <label className="block text-[10px] font-black uppercase mb-3 tracking-[0.3em] opacity-50" style={{ color: theme.text }}>{t.lang_label}</label>
-              <div className="flex p-1 bg-black/40 border-2 rounded-xl" style={{ borderColor: theme.secondary }}>
-                <button 
-                  onClick={() => { audioService.playBeep('click'); setLang('es'); }}
-                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${lang === 'es' ? 'bg-white/10 text-white' : 'opacity-40'}`}
-                  style={{ color: lang === 'es' ? theme.accent : theme.text }}
-                >ESP</button>
-                <button 
-                  onClick={() => { audioService.playBeep('click'); setLang('en'); }}
-                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${lang === 'en' ? 'bg-white/10 text-white' : 'opacity-40'}`}
-                  style={{ color: lang === 'en' ? theme.accent : theme.text }}
-                >ENG</button>
-              </div>
-            </div>
-
-            {/* Audio FX Switcher */}
-            <div>
-              <label className="block text-[10px] font-black uppercase mb-3 tracking-[0.3em] opacity-50" style={{ color: theme.text }}>{t.audio_fx_label}</label>
-              <button 
-                onClick={() => { audioService.playBeep('click'); setAudioFx(!audioFx); }}
-                className="w-full flex items-center justify-between p-3 bg-black/40 border-2 rounded-xl transition-all"
-                style={{ borderColor: audioFx ? theme.accent : theme.secondary }}
-              >
-                <span className="text-[10px] font-black uppercase" style={{ color: audioFx ? theme.accent : theme.text }}>
-                  {audioFx ? t.fx_on : t.fx_off}
-                </span>
-                <div className={`w-10 h-5 rounded-full relative transition-colors ${audioFx ? 'bg-green-600' : 'bg-gray-700'}`}>
-                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${audioFx ? 'left-6' : 'left-1'}`} />
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Callsign Input */}
-          <div className="group">
-            <label className="block text-[10px] font-black uppercase mb-3 tracking-[0.3em] opacity-50" style={{ color: theme.text }}>{t.callsign_label}</label>
+          <div>
+            <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.callsign_label}</label>
             <input 
-              type="text" 
-              maxLength={12}
-              value={identity.callsign}
-              placeholder="ENTER CALLSIGN"
-              onChange={(e) => {
-                setIdentity({ ...identity, callsign: e.target.value.toUpperCase() });
-              }}
-              className="w-full p-4 rounded-xl bg-black/40 border-2 outline-none font-bold tracking-widest text-xl transition-all"
-              style={{ color: theme.accent, borderColor: theme.secondary } as any}
+              value={identity.callsign} 
+              onChange={e => setIdentity({...identity, callsign: e.target.value.toUpperCase()})} 
+              className="w-full bg-black/40 border-2 p-4 text-xl font-black outline-none rounded-xl" 
+              style={{ borderColor: theme.secondary, color: theme.accent }} 
             />
           </div>
 
-          {/* Room / Frequency Input with Randomizer */}
-          <div className="group">
-            <label className="block text-[10px] font-black uppercase mb-3 tracking-[0.3em] opacity-50" style={{ color: theme.text }}>{t.freq_label}</label>
+          <div>
+            <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.freq_label}</label>
             <div className="flex space-x-3">
               <input 
-                type="text" 
-                maxLength={6}
-                value={identity.frequency}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
-                  setIdentity({ ...identity, frequency: val });
-                }}
-                className="flex-grow p-4 rounded-xl bg-black/40 border-2 outline-none font-mono font-bold tracking-[0.5em] text-2xl"
-                style={{ color: theme.accent, borderColor: theme.secondary }}
+                value={identity.frequency} 
+                maxLength={6} 
+                onChange={e => setIdentity({...identity, frequency: e.target.value.replace(/\D/g,'')})} 
+                className="flex-grow bg-black/40 border-2 p-4 text-xl font-black outline-none tracking-widest rounded-xl" 
+                style={{ borderColor: theme.secondary, color: theme.accent }} 
               />
-              <button 
-                onClick={generateRandomFreq}
-                className="px-6 rounded-xl border-2 font-black text-xs hover:bg-white/10 transition-colors uppercase"
-                style={{ borderColor: theme.accent, color: theme.accent }}
-              >
-                RND
-              </button>
+              <button onClick={generateRandomFreq} className="px-6 border-2 font-black text-xs uppercase rounded-xl active:scale-95" style={{ borderColor: theme.accent, color: theme.accent }}>RND</button>
             </div>
           </div>
 
-          {/* Theme Selector */}
-          <div>
-            <label className="block text-[10px] font-black uppercase mb-4 tracking-[0.3em] opacity-50" style={{ color: theme.text }}>{t.theme_label}</label>
-            <div className="grid grid-cols-2 gap-2">
-              {THEMES.map(t_theme => (
-                <button
-                  key={t_theme.id}
-                  onClick={() => {
-                    audioService.playBeep('click');
-                    setTheme(t_theme);
-                  }}
-                  className={`p-3 text-[9px] font-black rounded-lg border-2 transition-all flex items-center justify-between ${theme.id === t_theme.id ? 'opacity-100' : 'opacity-40 grayscale'}`}
-                  style={{ 
-                    backgroundColor: t_theme.primary, 
-                    color: t_theme.accent, 
-                    borderColor: theme.id === t_theme.id ? t_theme.accent : 'transparent' 
-                  }}
-                >
-                  {t_theme.name}
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t_theme.accent }} />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Author Section - Mc Wolf */}
-          <div className="pt-8 mt-4 border-t-2" style={{ borderColor: `${theme.secondary}44` }}>
-            <div className="flex flex-col items-center">
-              <div className="text-[10px] font-black uppercase tracking-[0.5em] opacity-40 mb-4" style={{ color: theme.text }}>{t.author_label}</div>
-              
-              <div className="w-full p-4 rounded-xl border-2 border-dashed flex flex-col items-center" style={{ borderColor: `${theme.accent}44` }}>
-                 <div className="text-xl font-black italic tracking-tighter mb-4" style={{ color: theme.accent }}>
-                    Mc Wolf
-                 </div>
-                 
-                 <div className="flex items-center space-x-6">
-                    <a 
-                      href="https://www.facebook.com/share/1aJC2QMujs/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="transition-transform hover:scale-110 active:scale-95 flex items-center space-x-2"
-                    >
-                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
-                        <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" />
-                      </svg>
-                      <span className="text-[8px] font-black uppercase opacity-60" style={{ color: theme.text }}>FB</span>
-                    </a>
-
-                    <a 
-                      href="https://www.instagram.com/mc_roony03?igsh=MW41bmh6ZmpyZXI4bg==" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="transition-transform hover:scale-110 active:scale-95 flex items-center space-x-2"
-                    >
-                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
-                        <path d="M12 2c2.717 0 3.056.01 4.122.058 1.066.048 1.79.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.637.417 1.361.465 2.427.048 1.066.058 1.405.058 4.122s-.01 3.056-.058 4.122c-.048 1.066-.218 1.79-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.637.247-1.361.417-2.427.465-1.066.048-1.405.058-4.122.058s-3.056-.01-4.122-.058c-1.066-.048-1.79-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.637-.417-1.361-.465-2.427-.048-1.066-.058-1.405-.058-4.122s.01-3.056.058-4.122c.048-1.066.218-1.79.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 3.058c.637-.247 1.361-.417 2.427-.465C8.944 2.01 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z" />
-                      </svg>
-                      <span className="text-[8px] font-black uppercase opacity-60" style={{ color: theme.text }}>IG</span>
-                    </a>
-                 </div>
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.lang_label}</label>
+              <div className="flex border-2 rounded-xl overflow-hidden" style={{ borderColor: theme.secondary }}>
+                <button onClick={() => setLang('es')} className={`flex-1 py-3 text-[10px] font-black ${lang === 'es' ? 'bg-white/10' : 'opacity-40'}`}>ESP</button>
+                <button onClick={() => setLang('en')} className={`flex-1 py-3 text-[10px] font-black ${lang === 'en' ? 'bg-white/10' : 'opacity-40'}`}>ENG</button>
               </div>
             </div>
+            <div className="flex-1">
+              <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.audio_fx_label}</label>
+              <button onClick={() => setAudioFx(!audioFx)} className={`w-full py-3 border-2 rounded-xl text-[10px] font-black ${audioFx ? 'border-green-500 text-green-500 shadow-[0_0_10px_green]' : 'opacity-40'}`} style={{ borderColor: audioFx ? '' : theme.secondary }}>{audioFx ? t.fx_on : t.fx_off}</button>
+            </div>
+          </div>
+
+          <div>
+             <label className="text-[10px] font-black opacity-50 block mb-4 uppercase tracking-widest">{t.theme_label}</label>
+             <div className="grid grid-cols-2 gap-3 mb-6">
+                {THEMES.map(th => (
+                  <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 flex items-center justify-between text-[9px] font-black rounded-lg transition-all ${theme.id === th.id ? 'scale-105' : 'opacity-40 grayscale'}`} style={{ borderColor: theme.id === th.id ? th.accent : 'transparent', backgroundColor: th.primary, color: th.accent }}>
+                    {th.name}<div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: th.accent }} />
+                  </button>
+                ))}
+             </div>
+             
+             <div className="p-5 border-2 rounded-2xl flex flex-col space-y-4" style={{ borderColor: theme.secondary, backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                <label className="text-[10px] font-black uppercase opacity-60 flex justify-between tracking-widest">
+                   {t.custom_color} 
+                   <span style={{ color: theme.accent }}>{theme.accent}</span>
+                </label>
+                <input type="color" value={theme.accent} onChange={handleCustomColor} className="w-full h-12 bg-transparent cursor-pointer rounded-lg overflow-hidden border-none" />
+             </div>
+          </div>
+
+          <div className="pt-10 border-t-2 border-white/10 flex flex-col items-center pb-6">
+             <span className="text-[10px] font-black opacity-30 mb-2 uppercase tracking-[0.4em]">{t.author_label}</span>
+             <span className="text-xl font-black italic mb-6 font-orbitron" style={{ color: theme.accent }}>Mc Wolf</span>
+             <div className="flex space-x-12">
+              <a href="https://www.facebook.com/share/1aJC2QMujs/" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
+              <a href="https://www.instagram.com/mc_roony03?igsh=MW41bmh6ZmpyZXI4bg==" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M12 2c2.717 0 3.056.01 4.122.058 1.066.048 1.79.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.637.417 1.361.465 2.427.048 1.066.058 1.405.058 4.122s-.01 3.056-.058 4.122c-.048 1.066-.218 1.79-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.637.247-1.361.417-2.427.465-1.066.048-1.405.058-4.122.058s-3.056-.01-4.122-.058c-1.066-.048-1.79-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.637-.417-1.361-.465-2.427-.048-1.066-.058-1.405-.058-4.122s.01-3.056.058-4.122c.048-1.066.218-1.79.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 3.058c.637-.247 1.361-.417 2.427-.465C8.944 2.01 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/></svg></a>
+             </div>
           </div>
         </div>
-
-        <button 
-          onClick={() => {
-            audioService.playBeep('click');
-            onClose();
-          }}
-          className="w-full mt-10 p-5 font-black uppercase tracking-[0.4em] border-4 shadow-xl active:scale-95 transition-transform"
-          style={{ backgroundColor: theme.accent, color: theme.background, borderColor: theme.accent }}
-        >
-          {t.save_changes}
-        </button>
       </div>
     </div>
   );
@@ -412,139 +308,178 @@ const SettingsPanel: React.FC<{
 // --- Main App Component ---
 
 const App: React.FC = () => {
-  const [theme, setTheme] = useState<Theme>(THEMES[0]);
-  const [lang, setLang] = useState<'es' | 'en'>(() => {
-    const saved = localStorage.getItem('commlink_lang');
-    return (saved === 'en' || saved === 'es') ? saved : 'es';
-  });
-  const [audioFx, setAudioFx] = useState<boolean>(() => {
-    const saved = localStorage.getItem('commlink_audiofx');
-    return saved === null ? true : saved === 'true';
-  });
-  const [identity, setIdentity] = useState<UserIdentity>(() => {
-    const saved = localStorage.getItem('commlink_identity');
-    return saved ? JSON.parse(saved) : { callsign: DEFAULT_CALLSIGN, frequency: DEFAULT_FREQUENCY };
-  });
-  const [appState, setAppState] = useState<AppState>(AppState.IDLE);
-  const [peerList, setPeerList] = useState<string[]>([]);
+  const [identity, setIdentity] = useState<UserIdentity>(() => JSON.parse(localStorage.getItem('cl_id') || 'null') || { callsign: DEFAULT_CALLSIGN, frequency: DEFAULT_FREQUENCY });
+  const [theme, setTheme] = useState<Theme>(() => JSON.parse(localStorage.getItem('cl_theme') || 'null') || THEMES[0]);
+  const [lang, setLang] = useState<'es' | 'en'>(() => (localStorage.getItem('cl_lang') as any) || 'es');
+  const [audioFx, setAudioFx] = useState<boolean>(() => localStorage.getItem('cl_audiofx') !== 'false');
+  
+  const [peers, setPeers] = useState<string[]>([]);
+  const [status, setStatus] = useState<AppState>(AppState.IDLE);
+  const [receiving, setReceiving] = useState(false);
+  const [handsFree, setHandsFree] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showQr, setShowQr] = useState(false);
-  const [isReceiving, setIsReceiving] = useState(false);
-  const [handsFree, setHandsFree] = useState(false);
-  
-  const peerServiceRef = useRef<PeerService | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const peerServiceRef = useRef<PeerService | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const t = TRANSLATIONS[lang];
 
   useEffect(() => {
-    localStorage.setItem('commlink_identity', JSON.stringify(identity));
-    localStorage.setItem('commlink_lang', lang);
-    localStorage.setItem('commlink_audiofx', audioFx.toString());
+    localStorage.setItem('cl_id', JSON.stringify(identity));
+    localStorage.setItem('cl_theme', JSON.stringify(theme));
+    localStorage.setItem('cl_lang', lang);
+    localStorage.setItem('cl_audiofx', audioFx.toString());
     audioService.isEnabled = audioFx;
-  }, [identity, lang, audioFx]);
+  }, [identity, theme, lang, audioFx]);
 
   useEffect(() => {
-    const initPeer = async () => {
+    const init = async () => {
       if (peerServiceRef.current) peerServiceRef.current.destroy();
-      setAppState(AppState.CONNECTING);
+      setStatus(AppState.CONNECTING);
       const ps = new PeerService(
-        (peers) => setPeerList(peers),
-        (stream) => {
-          setIsReceiving(true);
+        setPeers,
+        (s) => {
+          setReceiving(true);
           audioService.playBeep('receive');
-          if (audioRef.current) { audioRef.current.srcObject = stream; audioRef.current.play(); }
+          if (audioRef.current) audioRef.current.srcObject = s;
         },
-        () => { setIsReceiving(false); audioService.playBeep('end'); }
+        () => {
+          setReceiving(false);
+          audioService.playBeep('end');
+        }
       );
       try {
         await ps.initialize(identity.frequency, identity.callsign);
         peerServiceRef.current = ps;
-        setAppState(AppState.READY);
-      } catch (err) { setAppState(AppState.ERROR); }
+        setStatus(AppState.READY);
+      } catch (e) {
+        setStatus(AppState.ERROR);
+      }
     };
-    initPeer();
+    init();
     return () => peerServiceRef.current?.destroy();
-  }, [identity.frequency]); 
+  }, [identity.frequency]);
 
-  const startTransmitting = async () => {
-    if (appState !== AppState.READY || isReceiving) return;
+  const txStart = async () => {
+    if (status !== AppState.READY || receiving) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      localStreamRef.current = stream;
-      setAppState(AppState.TRANSMITTING);
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localStreamRef.current = s;
+      setStatus(AppState.TRANSMITTING);
       audioService.playBeep('start');
-      peerServiceRef.current?.broadcastVoice(stream);
-    } catch (err) { setHandsFree(false); }
+      peerServiceRef.current?.broadcastVoice(s);
+    } catch (e) {
+      setHandsFree(false);
+    }
   };
 
-  const stopTransmitting = () => {
-    if (appState !== AppState.TRANSMITTING) return;
-    setAppState(AppState.READY);
+  const txEnd = () => {
+    if (status !== AppState.TRANSMITTING) return;
+    setStatus(AppState.READY);
     audioService.playBeep('end');
     peerServiceRef.current?.stopBroadcast();
-    if (localStreamRef.current) { localStreamRef.current.getTracks().forEach(track => track.stop()); localStreamRef.current = null; }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current = null;
+    }
   };
 
-  const toggleHandsFree = useCallback(() => {
-    if (isReceiving) return;
-    const newState = !handsFree;
-    audioService.playBeep('click');
-    setHandsFree(newState);
-    newState ? startTransmitting() : stopTransmitting();
-  }, [handsFree, isReceiving]);
-
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden military-grid" style={{ backgroundColor: theme.background, color: theme.text }}>
+    <div className="relative w-full h-full flex flex-col overflow-hidden" style={{ color: theme.text, backgroundColor: theme.background }}>
       <ScanLine />
       <audio ref={audioRef} autoPlay />
-
+      
       <header className="pt-12 px-8 flex justify-between items-start z-20">
-        <div className="flex flex-col">
-          <h1 className="text-3xl font-black uppercase italic leading-none" style={{ color: theme.accent }}>COMMLINK</h1>
+        <div>
+          <h1 className="text-3xl font-black italic font-orbitron" style={{ color: theme.accent }}>COMMLINK</h1>
           <div className="flex items-center mt-3">
-            <div className={`w-2 h-2 rounded-full mr-2 ${(handsFree || appState === AppState.TRANSMITTING) ? 'bg-orange-500 animate-pulse' : appState === AppState.READY ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-            <span className="text-[9px] uppercase font-black tracking-[0.2em] opacity-80">
-              {appState === AppState.TRANSMITTING ? t.uplink_active : isReceiving ? t.downlink_active : appState === AppState.READY ? t.node_secured : '...'}
+            <div className={`w-2 h-2 rounded-full mr-2 ${status === AppState.TRANSMITTING || handsFree ? 'bg-orange-500 animate-pulse' : status === AppState.READY ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
+              {status === AppState.TRANSMITTING ? t.uplink_active : receiving ? t.downlink_active : t.node_secured}
             </span>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[9px] uppercase font-black opacity-40 tracking-widest">UNIT_ID</div>
-          <div className="text-xl font-black tracking-tighter" style={{ color: theme.accent }}>{identity.callsign}</div>
-          <div className="text-[9px] uppercase font-black opacity-40 mt-1">{t.active_units}: {peerList.length + 1}</div>
+          <div className="text-[9px] font-black opacity-40 uppercase tracking-widest">CALLSIGN</div>
+          <div className="text-xl font-black uppercase tracking-tighter" style={{ color: theme.accent }}>{identity.callsign}</div>
+          <div className="text-[9px] font-black opacity-30 mt-1 uppercase tracking-tighter">{t.active_units}: {peers.length + 1}</div>
         </div>
       </header>
 
-      <main className="flex-grow flex flex-col items-center justify-center space-y-8 px-6 z-10">
+      <main className="flex-grow flex flex-col items-center justify-center space-y-12 z-10 px-8 text-center">
         <FrequencyDisplay value={identity.frequency} theme={theme} t={t} />
-        <div className="flex items-end space-x-1.5 h-12 w-full max-w-[200px]">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="flex-grow transition-all duration-75 rounded-t-sm" style={{ height: (isReceiving || appState === AppState.TRANSMITTING || handsFree) ? `${Math.floor(Math.random() * 80) + 20}%` : '4px', backgroundColor: theme.accent, opacity: (isReceiving || appState === AppState.TRANSMITTING || handsFree) ? 1 : 0.15 }} />
-          ))}
-        </div>
-        <div className="flex flex-col items-center space-y-6">
-          <PttButton onStart={startTransmitting} onEnd={stopTransmitting} active={appState === AppState.TRANSMITTING} theme={theme} disabled={appState === AppState.CONNECTING || isReceiving} handsFreeActive={handsFree} t={t} />
-          <button onClick={toggleHandsFree} disabled={isReceiving} className={`flex items-center space-x-3 px-6 py-3 rounded-lg border-2 transition-all ${handsFree ? 'animate-pulse' : 'opacity-60'}`} style={{ borderColor: handsFree ? theme.accent : theme.secondary, color: handsFree ? theme.accent : theme.text }}>
-            <div className={`w-3 h-3 rounded-full ${handsFree ? 'bg-orange-500 shadow-[0_0_10px_orange]' : 'bg-gray-600'}`} />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t.hands_free} {handsFree ? 'ON' : 'OFF'}</span>
+
+        <div className="flex flex-col items-center space-y-8">
+          <PttButton 
+            onStart={txStart} 
+            onEnd={txEnd} 
+            active={status === AppState.TRANSMITTING} 
+            theme={theme} 
+            disabled={status === AppState.CONNECTING || receiving} 
+            handsFreeActive={handsFree} 
+            t={t} 
+          />
+
+          <button 
+            onClick={() => { audioService.playBeep('click'); setHandsFree(!handsFree); handsFree ? txEnd() : txStart(); }} 
+            className={`flex items-center space-x-3 px-8 py-3 rounded-xl border-2 transition-all ${handsFree ? 'animate-pulse' : 'opacity-60'}`} 
+            style={{ borderColor: handsFree ? theme.accent : theme.secondary, color: handsFree ? theme.accent : theme.text }}
+          >
+            <div className={`w-3 h-3 rounded-full ${handsFree ? 'bg-orange-500 shadow-[0_0_12px_orange]' : 'bg-gray-600'}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{t.hands_free} {handsFree ? 'ON' : 'OFF'}</span>
           </button>
         </div>
       </main>
 
       <footer className="pb-12 px-10 flex justify-between items-center z-20">
-        <button onClick={() => { audioService.playBeep('click'); setShowSettings(true); }} className="p-4 rounded-xl border flex items-center space-x-3 bg-black/20" style={{ borderColor: theme.secondary }}>
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+        <button 
+          onClick={() => { audioService.playBeep('click'); setShowSettings(true); }} 
+          className="p-4 border-2 rounded-2xl transition-all active:scale-90" 
+          style={{ borderColor: theme.secondary, backgroundColor: 'rgba(0,0,0,0.2)' }}
+        >
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
         </button>
-        <button onClick={() => { audioService.playBeep('click'); setShowQr(true); }} className="p-4 rounded-xl border flex items-center space-x-3 bg-black/20" style={{ borderColor: theme.secondary }}>
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+        <button 
+          onClick={() => { audioService.playBeep('click'); setShowQr(true); }} 
+          className="p-4 border-2 rounded-2xl transition-all active:scale-90" 
+          style={{ borderColor: theme.secondary, backgroundColor: 'rgba(0,0,0,0.2)' }}
+        >
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+          </svg>
         </button>
       </footer>
 
-      {showSettings && <SettingsPanel identity={identity} setIdentity={setIdentity} theme={theme} setTheme={setTheme} lang={lang} setLang={setLang} audioFx={audioFx} setAudioFx={setAudioFx} onClose={() => setShowSettings(false)} t={t} />}
-      {showQr && <QrPanel frequency={identity.frequency} theme={theme} onClose={() => setShowQr(false)} onScan={(f) => { setIdentity({...identity, frequency: f}); setShowQr(false); }} t={t} />}
-      {isReceiving && <div className="fixed top-24 left-0 right-0 flex justify-center z-50 pointer-events-none"><div className="px-6 py-2 bg-red-600 text-white font-black rounded-full animate-pulse flex items-center space-x-3"><div className="w-2 h-2 bg-white rounded-full animate-ping" /><span className="text-[10px] uppercase tracking-[0.2em]">{t.incoming}</span></div></div>}
+      {showSettings && (
+        <SettingsPanel 
+          identity={identity} setIdentity={setIdentity} 
+          theme={theme} setTheme={setTheme} 
+          lang={lang} setLang={setLang} 
+          audioFx={audioFx} setAudioFx={setAudioFx} 
+          onClose={() => setShowSettings(false)} t={t} 
+        />
+      )}
+      
+      {showQr && (
+        <QrPanel 
+          frequency={identity.frequency} theme={theme} 
+          onClose={() => setShowQr(false)} 
+          onScan={(f) => { setIdentity({...identity, frequency: f}); setShowQr(false); }} t={t} 
+        />
+      )}
+
+      {receiving && (
+        <div className="fixed top-24 left-0 right-0 flex justify-center z-50 pointer-events-none px-6">
+          <div className="px-6 py-2 bg-red-600 text-white font-black rounded-full animate-pulse flex items-center space-x-3 shadow-[0_0_20px_red]">
+            <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+            <span className="text-[10px] uppercase tracking-[0.2em]">{t.incoming}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
