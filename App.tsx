@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { THEMES, TRANSLATIONS, FREQUENCY_LENGTH, DEFAULT_CALLSIGN, DEFAULT_FREQUENCY } from './constants';
+import React, { useState, useEffect, useRef } from 'react';
+import { THEMES, TRANSLATIONS, DEFAULT_CALLSIGN, DEFAULT_FREQUENCY } from './constants';
 import { AppState, UserIdentity, Theme } from './types';
 import { audioService } from './services/audioService';
 import { PeerService } from './services/peerService';
@@ -11,7 +11,7 @@ const ScanLine: React.FC = () => <div className="scanline" />;
 
 const FrequencyDisplay: React.FC<{ value: string; theme: Theme; t: any }> = ({ value, theme, t }) => (
   <div 
-    className="flex flex-col items-center justify-center p-6 rounded-xl border-2 shadow-lg"
+    className="flex flex-col items-center justify-center p-6 rounded-xl border-2 shadow-lg transition-colors duration-500"
     style={{ borderColor: theme.accent, backgroundColor: theme.primary }}
   >
     <span className="text-[10px] uppercase opacity-50 mb-1 font-black tracking-[0.3em]" style={{ color: theme.text }}>{t.sector_freq}</span>
@@ -45,7 +45,7 @@ const PttButton: React.FC<{
         onTouchEnd={(e) => { if (!handsFreeActive) { e.preventDefault(); onEnd(); } }}
         disabled={disabled}
         className={`
-          relative w-52 h-52 rounded-full border-8 tactile-button-shadow transition-all duration-75
+          relative w-52 h-52 rounded-full border-8 tactile-button-shadow transition-all duration-300
           flex items-center justify-center flex-col
           ${(active || handsFreeActive) ? 'tactile-button-active' : ''}
           ${disabled ? 'opacity-50 grayscale' : 'cursor-pointer active:scale-95'}
@@ -142,6 +142,7 @@ const QrPanel: React.FC<{
         .catch(err => {
           console.error("Camera access denied", err);
           setIsScanning(false);
+          alert("Permiso de cámara denegado o no disponible.");
         });
     }
 
@@ -158,7 +159,7 @@ const QrPanel: React.FC<{
         style={{ backgroundColor: theme.background, borderColor: theme.accent }}
       >
         <div className="w-full flex justify-between items-center mb-8">
-          <button onClick={onClose} className="flex items-center space-x-2 opacity-60" style={{ color: theme.text }}>
+          <button onClick={onClose} className="flex items-center space-x-2 opacity-60 hover:opacity-100 transition-opacity" style={{ color: theme.text }}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -175,7 +176,7 @@ const QrPanel: React.FC<{
               <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline />
               <canvas ref={canvasRef} className="hidden" />
               <div className="absolute inset-0 border-2 border-dashed border-white/10 animate-pulse pointer-events-none" />
-              <div className="absolute top-1/2 left-0 right-0 h-1 bg-red-500/50 shadow-[0_0_15px_red] animate-scan" />
+              <div className="absolute top-1/2 left-0 right-0 h-1 bg-red-500 shadow-[0_0_15px_red] animate-scan z-10" />
             </>
           ) : (
             <canvas ref={qrRef} />
@@ -219,7 +220,13 @@ const SettingsPanel: React.FC<{
 
   const handleCustomColor = (e: React.ChangeEvent<HTMLInputElement>) => {
     const color = e.target.value;
-    setTheme({ ...THEMES.find(t => t.id === 'custom')!, accent: color, glow: `${color}88` });
+    const customBase = THEMES.find(t => t.id === 'custom') || THEMES[0];
+    setTheme({ 
+      ...customBase, 
+      id: 'custom', 
+      accent: color, 
+      glow: `${color}88` 
+    });
   };
 
   return (
@@ -230,7 +237,7 @@ const SettingsPanel: React.FC<{
       >
         <div className="flex justify-between items-center mb-10">
           <h2 className="text-2xl font-black uppercase font-orbitron italic" style={{ color: theme.accent }}>{t.ops_config}</h2>
-          <button onClick={onClose} className="text-[10px] font-black uppercase tracking-widest border-2 px-4 py-2 rounded-lg active:scale-95" style={{ borderColor: theme.accent, color: theme.accent }}>{t.back}</button>
+          <button onClick={onClose} className="text-[10px] font-black uppercase tracking-widest border-2 px-4 py-2 rounded-lg active:scale-95 transition-all" style={{ borderColor: theme.accent, color: theme.accent }}>{t.back}</button>
         </div>
 
         <div className="space-y-8 flex-grow">
@@ -254,7 +261,7 @@ const SettingsPanel: React.FC<{
                 className="flex-grow bg-black/40 border-2 p-4 text-xl font-black outline-none tracking-widest rounded-xl" 
                 style={{ borderColor: theme.secondary, color: theme.accent }} 
               />
-              <button onClick={generateRandomFreq} className="px-6 border-2 font-black text-xs uppercase rounded-xl active:scale-95" style={{ borderColor: theme.accent, color: theme.accent }}>RND</button>
+              <button onClick={generateRandomFreq} className="px-6 border-2 font-black text-xs uppercase rounded-xl active:scale-95 transition-all" style={{ borderColor: theme.accent, color: theme.accent }}>RND</button>
             </div>
           </div>
 
@@ -262,13 +269,13 @@ const SettingsPanel: React.FC<{
             <div className="flex-1">
               <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.lang_label}</label>
               <div className="flex border-2 rounded-xl overflow-hidden" style={{ borderColor: theme.secondary }}>
-                <button onClick={() => setLang('es')} className={`flex-1 py-3 text-[10px] font-black ${lang === 'es' ? 'bg-white/10' : 'opacity-40'}`}>ESP</button>
-                <button onClick={() => setLang('en')} className={`flex-1 py-3 text-[10px] font-black ${lang === 'en' ? 'bg-white/10' : 'opacity-40'}`}>ENG</button>
+                <button onClick={() => setLang('es')} className={`flex-1 py-3 text-[10px] font-black transition-colors ${lang === 'es' ? 'bg-white/10' : 'opacity-40 hover:bg-white/5'}`}>ESP</button>
+                <button onClick={() => setLang('en')} className={`flex-1 py-3 text-[10px] font-black transition-colors ${lang === 'en' ? 'bg-white/10' : 'opacity-40 hover:bg-white/5'}`}>ENG</button>
               </div>
             </div>
             <div className="flex-1">
               <label className="text-[10px] font-black opacity-50 block mb-2 uppercase tracking-widest">{t.audio_fx_label}</label>
-              <button onClick={() => setAudioFx(!audioFx)} className={`w-full py-3 border-2 rounded-xl text-[10px] font-black ${audioFx ? 'border-green-500 text-green-500 shadow-[0_0_10px_green]' : 'opacity-40'}`} style={{ borderColor: audioFx ? '' : theme.secondary }}>{audioFx ? t.fx_on : t.fx_off}</button>
+              <button onClick={() => setAudioFx(!audioFx)} className={`w-full py-3 border-2 rounded-xl text-[10px] font-black transition-all ${audioFx ? 'border-green-500 text-green-500 shadow-[0_0_10px_green]' : 'opacity-40'}`} style={{ borderColor: audioFx ? '' : theme.secondary }}>{audioFx ? t.fx_on : t.fx_off}</button>
             </div>
           </div>
 
@@ -276,7 +283,7 @@ const SettingsPanel: React.FC<{
              <label className="text-[10px] font-black opacity-50 block mb-4 uppercase tracking-widest">{t.theme_label}</label>
              <div className="grid grid-cols-2 gap-3 mb-6">
                 {THEMES.map(th => (
-                  <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 flex items-center justify-between text-[9px] font-black rounded-lg transition-all ${theme.id === th.id ? 'scale-105' : 'opacity-40 grayscale'}`} style={{ borderColor: theme.id === th.id ? th.accent : 'transparent', backgroundColor: th.primary, color: th.accent }}>
+                  <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 flex items-center justify-between text-[9px] font-black rounded-lg transition-all ${theme.id === th.id ? 'scale-105 shadow-lg' : 'opacity-40 grayscale hover:opacity-70'}`} style={{ borderColor: theme.id === th.id ? th.accent : 'transparent', backgroundColor: th.primary, color: th.accent }}>
                     {th.name}<div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: th.accent }} />
                   </button>
                 ))}
@@ -295,8 +302,8 @@ const SettingsPanel: React.FC<{
              <span className="text-[10px] font-black opacity-30 mb-2 uppercase tracking-[0.4em]">{t.author_label}</span>
              <span className="text-xl font-black italic mb-6 font-orbitron" style={{ color: theme.accent }}>Mc Wolf</span>
              <div className="flex space-x-12">
-              <a href="https://www.facebook.com/share/1aJC2QMujs/" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
-              <a href="https://www.instagram.com/mc_roony03?igsh=MW41bmh6ZmpyZXI4bg==" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M12 2c2.717 0 3.056.01 4.122.058 1.066.048 1.79.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.637.417 1.361.465 2.427.048 1.066.058 1.405.058 4.122s-.01 3.056-.058 4.122c-.048 1.066-.218 1.79-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.637.247-1.361.417-2.427.465-1.066.048-1.405.058-4.122.058s-3.056-.01-4.122-.058c-1.066-.048-1.79-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.637-.417-1.361-.465-2.427-.048-1.066-.058-1.405-.058-4.122s.01-3.056.058-4.122c.048-1.066.218-1.79.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 3.058c.637-.247 1.361-.417 2.427-.465C8.944 2.01 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/></svg></a>
+              <a href="https://www.facebook.com/share/1aJC2QMujs/" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-all hover:scale-110" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg></a>
+              <a href="https://www.instagram.com/mc_roony03?igsh=MW41bmh6ZmpyZXI4bg==" target="_blank" rel="noopener noreferrer"><svg className="w-8 h-8 opacity-50 hover:opacity-100 transition-all hover:scale-110" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}><path d="M12 2c2.717 0 3.056.01 4.122.058 1.066.048 1.79.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.637.417 1.361.465 2.427.048 1.066.058 1.405.058 4.122s-.01 3.056-.058 4.122c-.048 1.066-.218 1.79-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.637.247-1.361.417-2.427.465-1.066.048-1.405.058-4.122.058s-3.056-.01-4.122-.058c-1.066-.048-1.79-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.637-.417-1.361-.465-2.427-.048-1.066-.058-1.405-.058-4.122s.01-3.056.058-4.122c.048-1.066.218-1.79.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 3.058c.637-.247 1.361-.417 2.427-.465C8.944 2.01 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/></svg></a>
              </div>
           </div>
         </div>
@@ -308,8 +315,24 @@ const SettingsPanel: React.FC<{
 // --- Main App Component ---
 
 const App: React.FC = () => {
-  const [identity, setIdentity] = useState<UserIdentity>(() => JSON.parse(localStorage.getItem('cl_id') || 'null') || { callsign: DEFAULT_CALLSIGN, frequency: DEFAULT_FREQUENCY });
-  const [theme, setTheme] = useState<Theme>(() => JSON.parse(localStorage.getItem('cl_theme') || 'null') || THEMES[0]);
+  const [identity, setIdentity] = useState<UserIdentity>(() => {
+    try {
+      const saved = localStorage.getItem('cl_id');
+      return saved ? JSON.parse(saved) : { callsign: DEFAULT_CALLSIGN, frequency: DEFAULT_FREQUENCY };
+    } catch {
+      return { callsign: DEFAULT_CALLSIGN, frequency: DEFAULT_FREQUENCY };
+    }
+  });
+
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const saved = localStorage.getItem('cl_theme');
+      return saved ? JSON.parse(saved) : THEMES[0];
+    } catch {
+      return THEMES[0];
+    }
+  });
+
   const [lang, setLang] = useState<'es' | 'en'>(() => (localStorage.getItem('cl_lang') as any) || 'es');
   const [audioFx, setAudioFx] = useState<boolean>(() => localStorage.getItem('cl_audiofx') !== 'false');
   
@@ -354,6 +377,7 @@ const App: React.FC = () => {
         peerServiceRef.current = ps;
         setStatus(AppState.READY);
       } catch (e) {
+        console.error("Peer init failed", e);
         setStatus(AppState.ERROR);
       }
     };
@@ -370,6 +394,7 @@ const App: React.FC = () => {
       audioService.playBeep('start');
       peerServiceRef.current?.broadcastVoice(s);
     } catch (e) {
+      console.error("Microphone access failed", e);
       setHandsFree(false);
     }
   };
@@ -386,7 +411,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden" style={{ color: theme.text, backgroundColor: theme.background }}>
+    <div className="relative w-full h-full flex flex-col overflow-hidden transition-colors duration-500" style={{ color: theme.text, backgroundColor: theme.background }}>
       <ScanLine />
       <audio ref={audioRef} autoPlay />
       
@@ -423,7 +448,7 @@ const App: React.FC = () => {
 
           <button 
             onClick={() => { audioService.playBeep('click'); setHandsFree(!handsFree); handsFree ? txEnd() : txStart(); }} 
-            className={`flex items-center space-x-3 px-8 py-3 rounded-xl border-2 transition-all ${handsFree ? 'animate-pulse' : 'opacity-60'}`} 
+            className={`flex items-center space-x-3 px-8 py-3 rounded-xl border-2 transition-all hover:scale-105 active:scale-95 ${handsFree ? 'animate-pulse' : 'opacity-60'}`} 
             style={{ borderColor: handsFree ? theme.accent : theme.secondary, color: handsFree ? theme.accent : theme.text }}
           >
             <div className={`w-3 h-3 rounded-full ${handsFree ? 'bg-orange-500 shadow-[0_0_12px_orange]' : 'bg-gray-600'}`} />
@@ -435,7 +460,7 @@ const App: React.FC = () => {
       <footer className="pb-12 px-10 flex justify-between items-center z-20">
         <button 
           onClick={() => { audioService.playBeep('click'); setShowSettings(true); }} 
-          className="p-4 border-2 rounded-2xl transition-all active:scale-90" 
+          className="p-4 border-2 rounded-2xl transition-all hover:scale-110 active:scale-90" 
           style={{ borderColor: theme.secondary, backgroundColor: 'rgba(0,0,0,0.2)' }}
         >
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
@@ -445,7 +470,7 @@ const App: React.FC = () => {
         </button>
         <button 
           onClick={() => { audioService.playBeep('click'); setShowQr(true); }} 
-          className="p-4 border-2 rounded-2xl transition-all active:scale-90" 
+          className="p-4 border-2 rounded-2xl transition-all hover:scale-110 active:scale-90" 
           style={{ borderColor: theme.secondary, backgroundColor: 'rgba(0,0,0,0.2)' }}
         >
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
