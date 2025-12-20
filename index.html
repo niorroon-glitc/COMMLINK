@@ -10,9 +10,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
-  <!-- Infraestructura de Grado Militar -->
+  <!-- Infraestructura Externa -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -85,20 +84,19 @@
   <div id="root">
     <div class="w-full h-full flex flex-col items-center justify-center space-y-4">
       <div class="w-12 h-12 border-4 border-lime-500/20 border-t-lime-500 rounded-full animate-spin"></div>
-      <div class="text-[10px] font-black text-lime-500 uppercase tracking-[0.3em] animate-pulse">Iniciando Sistemas Tactical...</div>
+      <div class="text-[10px] font-black text-lime-500 uppercase tracking-[0.3em] animate-pulse">Cargando CommLink...</div>
     </div>
   </div>
   
-  <!-- Se usa type="text/babel" con data-type="module" para que Babel procese todo el index.tsx -->
   <script type="text/babel" data-type="module" src="index.tsx"></script>
 
   <script>
-    // Registro defensivo para evitar errores de origen en entornos de previsualización
+    // Registro defensivo: solo intenta registrar si el origen coincide para evitar errores en previsualización
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js', { scope: './' })
-          .then(reg => console.log('SW Registered', reg.scope))
-          .catch(err => console.warn('SW registration failed (this is normal in some sandboxes):', err));
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW Active'))
+          .catch(err => console.warn('SW Skip (Preview Mode)'));
       });
     }
   </script>

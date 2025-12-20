@@ -22,58 +22,26 @@ const TRANSLATIONS = {
     sector_freq: "FRECUENCIA DE SECTOR",
     transmitting: "TRANSMITIENDO",
     hold_to_comm: "MANTENER PARA HABLAR",
-    latched_on: "MICRO BLOQUEADO",
     ops_config: "CONFIGURACIÓN TÁCTICA",
     back: "REGRESAR",
-    callsign_label: "IDENTIFICACIÓN (CALLSIGN)",
-    freq_label: "CÓDIGO DE SALA (6 DÍGITOS)",
-    theme_label: "TEMA HUD",
-    lang_label: "IDIOMA",
-    audio_fx_label: "EFECTOS",
+    callsign_label: "CALLSIGN",
+    freq_label: "SALA (6 DÍGITOS)",
+    theme_label: "HUD THEME",
     node_secured: "NODO SEGURO",
     incoming: "ENTRANTE...",
-    sync_title: "PUENTE QR",
-    scan_btn: "ESCANEAR",
-    hands_free: "MANO ALZADA",
     active_units: "UNIDADES",
-    fx_on: "ACTIVO",
-    fx_off: "SILENCIO"
-  },
-  en: {
-    sector_freq: "SECTOR FREQUENCY",
-    transmitting: "TRANSMITTING",
-    hold_to_comm: "HOLD TO COMM",
-    latched_on: "MIC LATCHED",
-    ops_config: "TACTICAL CONFIG",
-    back: "RETURN",
-    callsign_label: "CALLSIGN",
-    freq_label: "6-DIGIT CODE",
-    theme_label: "HUD THEME",
-    lang_label: "LANGUAGE",
-    audio_fx_label: "EFFECTS",
-    node_secured: "NODE SECURED",
-    incoming: "INCOMING...",
-    sync_title: "QR BRIDGE",
-    scan_btn: "SCAN",
-    hands_free: "HANDS FREE",
-    active_units: "UNITS",
-    fx_on: "ON",
-    fx_off: "OFF"
+    hands_free: "MANO ALZADA"
   }
 };
 
 // --- AUDIO SERVICE ---
 class AudioService {
   private ctx: AudioContext | null = null;
-  public isEnabled: boolean = true;
-
   private initCtx() {
     if (!this.ctx) this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }
-
   playBeep(type: 'start' | 'end' | 'receive' | 'click') {
-    if (!this.isEnabled && type !== 'click') return;
     this.initCtx();
     if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
@@ -90,11 +58,6 @@ class AudioService {
       g.gain.setValueAtTime(0.1, now);
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
       osc.start(now); osc.stop(now + 0.2);
-    } else if (type === 'click') {
-      osc.frequency.setValueAtTime(1200, now);
-      g.gain.setValueAtTime(0.05, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-      osc.start(now); osc.stop(now + 0.05);
     }
     osc.connect(g); g.connect(this.ctx.destination);
   }
@@ -119,25 +82,25 @@ class PeerService {
       config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
     });
     return new Promise((resolve, reject) => {
-      this.peer.on('open', (id) => { this.setupListeners(); resolve(id); });
+      this.peer.on('open', (id) => { 
+        this.peer.on('connection', (conn) => {
+          conn.on('open', () => {
+            this.connections.set(conn.peer, conn);
+            this.onConnectionUpdate(Array.from(this.connections.keys()));
+          });
+          conn.on('close', () => {
+            this.connections.delete(conn.peer);
+            this.onConnectionUpdate(Array.from(this.connections.keys()));
+          });
+        });
+        this.peer.on('call', (call) => {
+          call.answer();
+          call.on('stream', (s) => this.onStreamReceived(s, call.peer));
+          call.on('close', () => this.onStreamEnded(call.peer));
+        });
+        resolve(id); 
+      });
       this.peer.on('error', reject);
-    });
-  }
-  private setupListeners() {
-    this.peer.on('connection', (conn) => {
-      conn.on('open', () => {
-        this.connections.set(conn.peer, conn);
-        this.onConnectionUpdate(Array.from(this.connections.keys()));
-      });
-      conn.on('close', () => {
-        this.connections.delete(conn.peer);
-        this.onConnectionUpdate(Array.from(this.connections.keys()));
-      });
-    });
-    this.peer.on('call', (call) => {
-      call.answer();
-      call.on('stream', (s) => this.onStreamReceived(s, call.peer));
-      call.on('close', () => this.onStreamEnded(call.peer));
     });
   }
   broadcastVoice(stream: MediaStream) {
@@ -213,15 +176,15 @@ const App: React.FC = () => {
             <span className="text-[10px] font-black uppercase opacity-70 tracking-widest">{isTX ? t.transmitting : t.node_secured}</span>
           </div>
         </div>
-        <div className="text-right"><span className="text-[10px] font-black opacity-30 uppercase">{t.active_units}: {peers.length + 1}</span></div>
+        <div className="text-right text-[10px] font-black opacity-30 uppercase">{t.active_units}: {peers.length + 1}</div>
       </header>
+
       <main className="flex-grow flex flex-col items-center justify-center space-y-12 z-10 px-8">
         <div className="flex flex-col items-center p-8 rounded-2xl border-2 bg-black/40 backdrop-blur-md" style={{ borderColor: theme.accent }}>
           <span className="text-[10px] uppercase opacity-50 mb-2 font-black tracking-[0.4em]">{t.sector_freq}</span>
-          <div className="text-6xl font-black tracking-widest font-orbitron" style={{ color: theme.accent }}>
-            {identity.frequency.slice(0,3)}<span className="opacity-20 mx-1">.</span>{identity.frequency.slice(3)}
-          </div>
+          <div className="text-6xl font-black tracking-widest font-orbitron" style={{ color: theme.accent }}>{identity.frequency}</div>
         </div>
+
         <button 
           onMouseDown={txStart} onMouseUp={txEnd}
           onTouchStart={(e) => { e.preventDefault(); txStart(); }}
@@ -239,6 +202,7 @@ const App: React.FC = () => {
           <span className="mt-4 text-[10px] font-black uppercase tracking-widest">{isTX ? t.transmitting : t.hold_to_comm}</span>
         </button>
       </main>
+
       <footer className="p-12 flex justify-between items-center z-20">
         <button onClick={() => setShowSettings(true)} className="p-6 border-2 rounded-2xl bg-black/40" style={{ borderColor: theme.secondary }}>
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
@@ -246,6 +210,7 @@ const App: React.FC = () => {
           </svg>
         </button>
       </footer>
+
       {showSettings && (
         <div className="modal-overlay p-10" style={{ backgroundColor: theme.background }}>
           <div className="flex justify-between items-center mb-10">
@@ -255,11 +220,11 @@ const App: React.FC = () => {
           <div className="space-y-8 max-w-md mx-auto w-full">
             <div>
               <label className="text-[10px] font-black opacity-40 block mb-2 uppercase">{t.callsign_label}</label>
-              <input value={identity.callsign} onChange={e => setIdentity({...identity, callsign: e.target.value.toUpperCase()})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl outline-none" style={{ borderColor: theme.secondary, color: theme.accent }} />
+              <input value={identity.callsign} onChange={e => setIdentity({...identity, callsign: e.target.value.toUpperCase()})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl" style={{ borderColor: theme.secondary, color: theme.accent }} />
             </div>
             <div>
               <label className="text-[10px] font-black opacity-40 block mb-2 uppercase">{t.freq_label}</label>
-              <input value={identity.frequency} maxLength={6} onChange={e => setIdentity({...identity, frequency: e.target.value.replace(/\D/g,'')})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl outline-none tracking-[0.5em] font-orbitron" style={{ borderColor: theme.secondary, color: theme.accent }} />
+              <input value={identity.frequency} maxLength={6} onChange={e => setIdentity({...identity, frequency: e.target.value.replace(/\D/g,'')})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl tracking-widest" style={{ borderColor: theme.secondary, color: theme.accent }} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               {THEMES.map(th => (
@@ -269,9 +234,10 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
       {receiving && (
-        <div className="fixed top-28 left-0 right-0 flex justify-center z-[50] pointer-events-none">
-          <div className="px-8 py-3 bg-red-600 text-white font-black rounded-full animate-pulse flex items-center space-x-4">
+        <div className="fixed top-28 left-0 right-0 flex justify-center z-[50] pointer-events-none px-6">
+          <div className="px-8 py-3 bg-red-600 text-white font-black rounded-full animate-pulse flex items-center space-x-4 shadow-[0_0_30px_red]">
             <span className="text-[11px] uppercase tracking-widest">{t.incoming}</span>
           </div>
         </div>
