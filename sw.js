@@ -1,4 +1,4 @@
-const CACHE_NAME = 'commlink-v12.0-clean';
+const CACHE_NAME = 'commlink-v13.0-stable';
 const ASSETS = [
   './',
   './index.html',
