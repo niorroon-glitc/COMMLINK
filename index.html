@@ -48,11 +48,8 @@
       z-index: 100; pointer-events: none;
     }
     @keyframes scan { 0% { top: -5%; } 100% { top: 105%; } }
-    @keyframes laser-sweep { 0% { top: 0%; } 100% { top: 100%; } }
-    .animate-laser { animation: laser-sweep 2s linear infinite; }
     
     .font-orbitron { font-family: 'Orbitron', sans-serif; }
-
     #root { height: 100%; width: 100%; }
 
     .modal-overlay {
@@ -84,21 +81,30 @@
   <div id="root">
     <div class="w-full h-full flex flex-col items-center justify-center space-y-4">
       <div class="w-12 h-12 border-4 border-lime-500/20 border-t-lime-500 rounded-full animate-spin"></div>
-      <div class="text-[10px] font-black text-lime-500 uppercase tracking-[0.3em] animate-pulse">Cargando CommLink...</div>
+      <div class="text-[10px] font-black text-lime-500 uppercase tracking-[0.3em] animate-pulse">Iniciando CommLink...</div>
     </div>
   </div>
   
   <script type="text/babel" data-type="module" src="index.tsx"></script>
 
   <script>
-    // Registro defensivo: solo intenta registrar si el origen coincide para evitar errores en previsualización
+    // Registro ultra-seguro para GitHub Pages y entornos sandbox
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('SW Active'))
-          .catch(err => console.warn('SW Skip (Preview Mode)'));
+        // Solo intentar registrar si no estamos en un dominio bloqueado por sandbox
+        if (!window.location.host.includes('googlevideo.com') && !window.location.host.includes('usercontent.goog')) {
+          navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .then(reg => console.log('SW Operativo:', reg.scope))
+            .catch(err => console.warn('SW ignorado (Modo Previsualización o Error de Origen)'));
+        }
       });
     }
+
+    // Captura de errores para depuración rápida en "Pantalla Negra"
+    window.onerror = function(msg, url, line) {
+      console.error("Error Crítico:", msg, "\nEn:", url, "línea:", line);
+      return false;
+    };
   </script>
 </body>
 </html>

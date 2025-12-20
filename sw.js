@@ -1,7 +1,8 @@
-const CACHE_NAME = 'commlink-v16.0';
+const CACHE_NAME = 'commlink-v17.1-final';
 const ASSETS = [
   './',
   './index.html',
+  './index.tsx',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js',
@@ -26,5 +27,7 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request).catch(() => null))
+  );
 });
