@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 
-// --- TYPES & CONSTANTS ---
+// --- TYPES ---
 interface Theme {
   id: string; name: string; primary: string; secondary: string;
   accent: string; background: string; text: string; glow: string;
 }
-
 interface UserIdentity { callsign: string; frequency: string; }
-
 enum AppState { IDLE = 'IDLE', CONNECTING = 'CONNECTING', READY = 'READY', TRANSMITTING = 'TRANSMITTING', RECEIVING = 'RECEIVING', ERROR = 'ERROR' }
 
+// --- CONSTANTS ---
 const THEMES: Theme[] = [
   { id: 'military', name: 'Tactical OD', primary: '#1e293b', secondary: '#334155', accent: '#84cc16', background: '#0f172a', text: '#f8fafc', glow: 'rgba(132, 204, 22, 0.5)' },
   { id: 'cyberpunk', name: 'Night City', primary: '#111827', secondary: '#1f2937', accent: '#f472b6', background: '#030712', text: '#ec4899', glow: 'rgba(244, 114, 182, 0.5)' },
@@ -39,10 +38,31 @@ const TRANSLATIONS = {
     active_units: "UNIDADES",
     fx_on: "ACTIVO",
     fx_off: "SILENCIO"
+  },
+  en: {
+    sector_freq: "SECTOR FREQUENCY",
+    transmitting: "TRANSMITTING",
+    hold_to_comm: "HOLD TO COMM",
+    latched_on: "MIC LATCHED",
+    ops_config: "TACTICAL CONFIG",
+    back: "RETURN",
+    callsign_label: "CALLSIGN",
+    freq_label: "6-DIGIT CODE",
+    theme_label: "HUD THEME",
+    lang_label: "LANGUAGE",
+    audio_fx_label: "EFFECTS",
+    node_secured: "NODE SECURED",
+    incoming: "INCOMING...",
+    sync_title: "QR BRIDGE",
+    scan_btn: "SCAN",
+    hands_free: "HANDS FREE",
+    active_units: "UNITS",
+    fx_on: "ON",
+    fx_off: "OFF"
   }
 };
 
-// --- SERVICES ---
+// --- AUDIO SERVICE ---
 class AudioService {
   private ctx: AudioContext | null = null;
   public isEnabled: boolean = true;
@@ -56,11 +76,9 @@ class AudioService {
     if (!this.isEnabled && type !== 'click') return;
     this.initCtx();
     if (!this.ctx) return;
-
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     const now = this.ctx.currentTime;
-
     if (type === 'start') {
       osc.frequency.setValueAtTime(880, now);
       g.gain.setValueAtTime(0, now);
@@ -78,44 +96,33 @@ class AudioService {
       g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
       osc.start(now); osc.stop(now + 0.05);
     }
-
-    osc.connect(g);
-    g.connect(this.ctx.destination);
+    osc.connect(g); g.connect(this.ctx.destination);
   }
 }
-
 const audioService = new AudioService();
 
+// --- PEER SERVICE ---
 class PeerService {
   private peer: any = null;
   private connections: Map<string, any> = new Map();
   private calls: Map<string, any> = new Map();
-
   constructor(
     private onConnectionUpdate: (peers: string[]) => void,
     private onStreamReceived: (stream: MediaStream, peerId: string) => void,
     private onStreamEnded: (peerId: string) => void
   ) {}
-
   async initialize(frequency: string, callsign: string): Promise<string> {
     const peerId = `cl-${frequency}-${callsign.replace(/\W/g,'')}-${Math.random().toString(36).substring(2,6)}`;
-    
     if (this.peer) this.peer.destroy();
-
     this.peer = new (window as any).Peer(peerId, {
       debug: 1,
       config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
     });
-
     return new Promise((resolve, reject) => {
-      this.peer.on('open', (id) => {
-        this.setupListeners();
-        resolve(id);
-      });
+      this.peer.on('open', (id) => { this.setupListeners(); resolve(id); });
       this.peer.on('error', reject);
     });
   }
-
   private setupListeners() {
     this.peer.on('connection', (conn) => {
       conn.on('open', () => {
@@ -127,41 +134,33 @@ class PeerService {
         this.onConnectionUpdate(Array.from(this.connections.keys()));
       });
     });
-
     this.peer.on('call', (call) => {
       call.answer();
       call.on('stream', (s) => this.onStreamReceived(s, call.peer));
       call.on('close', () => this.onStreamEnded(call.peer));
     });
   }
-
   broadcastVoice(stream: MediaStream) {
     this.connections.forEach((_, id) => {
       const call = this.peer.call(id, stream);
       if (call) this.calls.set(id, call);
     });
   }
-
   stopBroadcast() {
     this.calls.forEach(c => c.close());
     this.calls.clear();
   }
-
-  destroy() {
-    if (this.peer) this.peer.destroy();
-  }
+  destroy() { if (this.peer) this.peer.destroy(); }
 }
 
-// --- APP COMPONENT ---
+// --- APP ---
 const App: React.FC = () => {
   const [identity, setIdentity] = useState<UserIdentity>({ callsign: 'RECLUTA', frequency: '444222' });
   const [theme, setTheme] = useState<Theme>(THEMES[0]);
   const [peers, setPeers] = useState<string[]>([]);
   const [status, setStatus] = useState<AppState>(AppState.IDLE);
   const [receiving, setReceiving] = useState(false);
-  const [handsFree, setHandsFree] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-
   const peerServiceRef = useRef<PeerService | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const t = TRANSLATIONS.es;
@@ -178,10 +177,7 @@ const App: React.FC = () => {
         await ps.initialize(identity.frequency, identity.callsign);
         peerServiceRef.current = ps;
         setStatus(AppState.READY);
-      } catch (e) {
-        console.error(e);
-        setStatus(AppState.ERROR);
-      }
+      } catch (e) { setStatus(AppState.ERROR); }
     };
     init();
     return () => peerServiceRef.current?.destroy();
@@ -209,22 +205,16 @@ const App: React.FC = () => {
   return (
     <div className="relative w-full h-full flex flex-col" style={{ color: theme.text, backgroundColor: theme.background }}>
       <audio ref={audioRef} autoPlay />
-      
       <header className="pt-16 px-10 flex justify-between items-start z-20">
         <div>
           <h1 className="text-3xl font-black italic font-orbitron" style={{ color: theme.accent }}>COMMLINK</h1>
           <div className="flex items-center mt-2">
             <div className={`w-2 h-2 rounded-full mr-2 ${isTX ? 'bg-orange-500 animate-pulse' : 'bg-green-500'}`} />
-            <span className="text-[10px] font-black uppercase opacity-70 tracking-widest">
-              {isTX ? t.transmitting : t.node_secured}
-            </span>
+            <span className="text-[10px] font-black uppercase opacity-70 tracking-widest">{isTX ? t.transmitting : t.node_secured}</span>
           </div>
         </div>
-        <div className="text-right">
-          <span className="text-[10px] font-black opacity-30 uppercase">{t.active_units}: {peers.length + 1}</span>
-        </div>
+        <div className="text-right"><span className="text-[10px] font-black opacity-30 uppercase">{t.active_units}: {peers.length + 1}</span></div>
       </header>
-
       <main className="flex-grow flex flex-col items-center justify-center space-y-12 z-10 px-8">
         <div className="flex flex-col items-center p-8 rounded-2xl border-2 bg-black/40 backdrop-blur-md" style={{ borderColor: theme.accent }}>
           <span className="text-[10px] uppercase opacity-50 mb-2 font-black tracking-[0.4em]">{t.sector_freq}</span>
@@ -232,7 +222,6 @@ const App: React.FC = () => {
             {identity.frequency.slice(0,3)}<span className="opacity-20 mx-1">.</span>{identity.frequency.slice(3)}
           </div>
         </div>
-        
         <button 
           onMouseDown={txStart} onMouseUp={txEnd}
           onTouchStart={(e) => { e.preventDefault(); txStart(); }}
@@ -247,12 +236,9 @@ const App: React.FC = () => {
           <svg className={`w-16 h-16 ${isTX ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
           </svg>
-          <span className="mt-4 text-[10px] font-black uppercase tracking-widest">
-            {isTX ? t.transmitting : t.hold_to_comm}
-          </span>
+          <span className="mt-4 text-[10px] font-black uppercase tracking-widest">{isTX ? t.transmitting : t.hold_to_comm}</span>
         </button>
       </main>
-
       <footer className="p-12 flex justify-between items-center z-20">
         <button onClick={() => setShowSettings(true)} className="p-6 border-2 rounded-2xl bg-black/40" style={{ borderColor: theme.secondary }}>
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: theme.accent }}>
@@ -260,7 +246,6 @@ const App: React.FC = () => {
           </svg>
         </button>
       </footer>
-
       {showSettings && (
         <div className="modal-overlay p-10" style={{ backgroundColor: theme.background }}>
           <div className="flex justify-between items-center mb-10">
@@ -276,22 +261,17 @@ const App: React.FC = () => {
               <label className="text-[10px] font-black opacity-40 block mb-2 uppercase">{t.freq_label}</label>
               <input value={identity.frequency} maxLength={6} onChange={e => setIdentity({...identity, frequency: e.target.value.replace(/\D/g,'')})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl outline-none tracking-[0.5em] font-orbitron" style={{ borderColor: theme.secondary, color: theme.accent }} />
             </div>
-            <div>
-              <label className="text-[10px] font-black opacity-40 block mb-4 uppercase">{t.theme_label}</label>
-              <div className="grid grid-cols-2 gap-2">
-                {THEMES.map(th => (
-                  <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 rounded-xl text-[9px] font-black transition-all ${theme.id === th.id ? 'scale-105' : 'opacity-60'}`} style={{ backgroundColor: th.primary, borderColor: theme.id === th.id ? th.accent : 'transparent', color: th.accent }}>{th.name}</button>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 gap-2">
+              {THEMES.map(th => (
+                <button key={th.id} onClick={() => setTheme(th)} className={`p-3 border-2 rounded-xl text-[9px] font-black ${theme.id === th.id ? 'opacity-100' : 'opacity-40'}`} style={{ backgroundColor: th.primary, borderColor: th.accent, color: th.accent }}>{th.name}</button>
+              ))}
             </div>
           </div>
         </div>
       )}
-
       {receiving && (
         <div className="fixed top-28 left-0 right-0 flex justify-center z-[50] pointer-events-none">
-          <div className="px-8 py-3 bg-red-600 text-white font-black rounded-full animate-pulse flex items-center space-x-4 shadow-[0_0_30px_red]">
-            <div className="w-2.5 h-2.5 bg-white rounded-full animate-ping" />
+          <div className="px-8 py-3 bg-red-600 text-white font-black rounded-full animate-pulse flex items-center space-x-4">
             <span className="text-[11px] uppercase tracking-widest">{t.incoming}</span>
           </div>
         </div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'commlink-v15.0-stable';
+const CACHE_NAME = 'commlink-v16.0';
 const ASSETS = [
   './',
   './index.html',
@@ -20,9 +20,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
+      return Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
     })
   );
 });
