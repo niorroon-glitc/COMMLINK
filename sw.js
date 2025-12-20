@@ -1,4 +1,4 @@
-const CACHE_NAME = 'commlink-v13.0-stable';
+const CACHE_NAME = 'commlink-v15.0-stable';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,8 @@ const ASSETS = [
   'https://esm.sh/react@18.2.0',
   'https://esm.sh/react-dom@18.2.0',
   'https://esm.sh/react-dom@18.2.0/client',
-  'https://esm.sh/react@18.2.0/jsx-runtime'
+  'https://esm.sh/react@18.2.0/jsx-runtime',
+  'https://unpkg.com/@babel/standalone/babel.min.js'
 ];
 
 self.addEventListener('install', (e) => {
