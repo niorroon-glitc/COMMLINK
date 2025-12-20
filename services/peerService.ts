@@ -45,21 +45,30 @@ export class PeerService {
       
       this.peer.on('disconnected', () => {
         console.warn('Peer disconnected from server. Attempting to reconnect...');
-        this.peer.reconnect();
+        // Intentar reconectar automáticamente
+        if (!this.peer.destroyed) {
+          this.peer.reconnect();
+        }
       });
 
       this.peer.on('error', (err: any) => {
         console.error('PeerJS error:', err);
-        if (err.type === 'server-error' || err.type === 'network') {
-          // Attempt manual recovery after a delay if the built-in reconnect fails
+        
+        // Manejar específicamente el error de pérdida de conexión
+        if (err.type === 'server-error' || err.type === 'network' || err.type === 'disconnected') {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = setTimeout(() => {
-            if (this.peer && this.peer.disconnected) {
+            if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+              console.log('Attempting manual recovery of Peer connection...');
               this.peer.reconnect();
             }
           }, 5000);
         }
-        reject(err);
+        
+        // No rechazamos si ya estamos inicializados, para permitir reconexión silenciosa
+        if (this.peer && !this.peer.open) {
+            reject(err);
+        }
       });
     });
   }
@@ -101,7 +110,7 @@ export class PeerService {
   }
 
   broadcastVoice(stream: MediaStream) {
-    if (!this.peer || this.peer.destroyed) return;
+    if (!this.peer || this.peer.destroyed || !this.peer.open) return;
     this.connections.forEach((_conn, peerId) => {
       try {
         const call = this.peer.call(peerId, stream);
