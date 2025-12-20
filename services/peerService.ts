@@ -21,10 +21,15 @@ export class PeerService {
   }
 
   async initialize(frequency: string, callsign: string): Promise<string> {
-    const peerId = `cl-${frequency}-${callsign.replace(/\s+/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
+    const cleanCallsign = callsign.replace(/[^a-zA-Z0-9]/g, '');
+    const peerId = `cl-${frequency}-${cleanCallsign}-${Math.random().toString(36).substring(2, 6)}`;
     
     if (!(window as any).Peer) {
       return Promise.reject("PeerJS not loaded");
+    }
+
+    if (this.peer) {
+      this.peer.destroy();
     }
 
     this.peer = new (window as any).Peer(peerId, {
@@ -39,35 +44,33 @@ export class PeerService {
 
     return new Promise((resolve, reject) => {
       this.peer.on('open', (id: string) => {
+        console.log('Peer connected with ID:', id);
         this.setupListeners();
         resolve(id);
       });
       
       this.peer.on('disconnected', () => {
-        console.warn('Peer disconnected from server. Attempting to reconnect...');
-        // Intentar reconectar automáticamente
+        console.warn('Peer disconnected from signaling server. Attempting reconnect...');
         if (!this.peer.destroyed) {
           this.peer.reconnect();
         }
       });
 
       this.peer.on('error', (err: any) => {
-        console.error('PeerJS error:', err);
+        console.error('PeerJS error:', err.type, err);
         
-        // Manejar específicamente el error de pérdida de conexión
         if (err.type === 'server-error' || err.type === 'network' || err.type === 'disconnected') {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = setTimeout(() => {
             if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
-              console.log('Attempting manual recovery of Peer connection...');
+              console.log('Retrying Peer connection...');
               this.peer.reconnect();
             }
           }, 5000);
         }
         
-        // No rechazamos si ya estamos inicializados, para permitir reconexión silenciosa
         if (this.peer && !this.peer.open) {
-            reject(err);
+          reject(err);
         }
       });
     });
@@ -79,12 +82,19 @@ export class PeerService {
     });
 
     this.peer.on('call', (call: any) => {
+      console.log('Incoming call from:', call.peer);
       call.answer();
       call.on('stream', (remoteStream: MediaStream) => {
         this.onStreamReceived(remoteStream, call.peer);
       });
       call.on('close', () => {
         this.onStreamEnded(call.peer);
+        this.calls.delete(call.peer);
+      });
+      call.on('error', (err: any) => {
+        console.error('Call error:', err);
+        this.onStreamEnded(call.peer);
+        this.calls.delete(call.peer);
       });
       this.calls.set(call.peer, call);
     });
@@ -99,7 +109,8 @@ export class PeerService {
       this.connections.delete(conn.peer);
       this.updatePeerList();
     });
-    conn.on('error', () => {
+    conn.on('error', (err: any) => {
+      console.error('Connection error:', err);
       this.connections.delete(conn.peer);
       this.updatePeerList();
     });
@@ -110,12 +121,25 @@ export class PeerService {
   }
 
   broadcastVoice(stream: MediaStream) {
-    if (!this.peer || this.peer.destroyed || !this.peer.open) return;
+    if (!this.peer || this.peer.destroyed) {
+      console.error('Cannot broadcast: Peer is destroyed');
+      return;
+    }
+    
+    if (this.peer.disconnected) {
+      this.peer.reconnect();
+    }
+
     this.connections.forEach((_conn, peerId) => {
       try {
+        if (this.calls.has(peerId)) {
+          this.calls.get(peerId).close();
+        }
+        
         const call = this.peer.call(peerId, stream);
         if (call) {
           this.calls.set(peerId, call);
+          call.on('error', (err: any) => console.error('Broadcast call error:', err));
         }
       } catch (err) {
         console.error(`Failed to call peer ${peerId}:`, err);
@@ -132,10 +156,11 @@ export class PeerService {
 
   destroy() {
     clearTimeout(this.reconnectTimer);
+    this.stopBroadcast();
     if (this.peer) {
       this.peer.destroy();
+      this.peer = null;
     }
     this.connections.clear();
-    this.calls.clear();
   }
 }
