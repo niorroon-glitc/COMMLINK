@@ -9,6 +9,7 @@ export class PeerService {
   private onStreamReceived: (stream: MediaStream, peerId: string) => void;
   private onStreamEnded: (peerId: string) => void;
   private reconnectTimer: any = null;
+  private isDestroyed: boolean = false;
 
   constructor(
     onConnectionUpdate: (peers: string[]) => void,
@@ -21,10 +22,12 @@ export class PeerService {
   }
 
   async initialize(frequency: string, callsign: string): Promise<string> {
+    this.isDestroyed = false;
     const cleanCallsign = callsign.replace(/[^a-zA-Z0-9]/g, '');
     const peerId = `cl-${frequency}-${cleanCallsign}-${Math.random().toString(36).substring(2, 6)}`;
     
     if (!(window as any).Peer) {
+      console.error("CRITICAL: PeerJS script not found in window object.");
       return Promise.reject("PeerJS not loaded");
     }
 
@@ -32,8 +35,10 @@ export class PeerService {
       this.peer.destroy();
     }
 
+    console.log("Initializing Peer with ID:", peerId);
+
     this.peer = new (window as any).Peer(peerId, {
-      debug: 1,
+      debug: 1, // Reducido para evitar spam de consola pero mantener visibilidad de errores
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -43,33 +48,39 @@ export class PeerService {
     });
 
     return new Promise((resolve, reject) => {
+      const connectionTimeout = setTimeout(() => {
+        reject("Connection timeout - Server unreachable");
+      }, 10000);
+
       this.peer.on('open', (id: string) => {
-        console.log('Peer connected with ID:', id);
+        clearTimeout(connectionTimeout);
+        console.log('Peer node established. ID:', id);
         this.setupListeners();
         resolve(id);
       });
       
       this.peer.on('disconnected', () => {
-        console.warn('Peer disconnected from signaling server. Attempting reconnect...');
-        if (!this.peer.destroyed) {
-          this.peer.reconnect();
-        }
+        if (this.isDestroyed) return;
+        console.warn('Signaling server link lost. Attempting auto-reconnect...');
+        this.peer.reconnect();
       });
 
       this.peer.on('error', (err: any) => {
-        console.error('PeerJS error:', err.type, err);
+        console.error('PeerJS Operational Error:', err.type, err);
         
-        if (err.type === 'server-error' || err.type === 'network' || err.type === 'disconnected') {
+        // Manejo específico de pérdida de servidor o red
+        if (err.type === 'server-error' || err.type === 'network' || err.type === 'disconnected' || err.type === 'socket-error') {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = setTimeout(() => {
             if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
-              console.log('Retrying Peer connection...');
+              console.log('Force retrying signaling connection...');
               this.peer.reconnect();
             }
-          }, 5000);
+          }, 3000);
         }
         
-        if (this.peer && !this.peer.open) {
+        if (!this.peer.open) {
+          clearTimeout(connectionTimeout);
           reject(err);
         }
       });
@@ -82,7 +93,7 @@ export class PeerService {
     });
 
     this.peer.on('call', (call: any) => {
-      console.log('Incoming call from:', call.peer);
+      console.log('Receiving uplink from:', call.peer);
       call.answer();
       call.on('stream', (remoteStream: MediaStream) => {
         this.onStreamReceived(remoteStream, call.peer);
@@ -92,7 +103,7 @@ export class PeerService {
         this.calls.delete(call.peer);
       });
       call.on('error', (err: any) => {
-        console.error('Call error:', err);
+        console.error('Uplink error:', err);
         this.onStreamEnded(call.peer);
         this.calls.delete(call.peer);
       });
@@ -102,6 +113,7 @@ export class PeerService {
 
   private handleIncomingConnection(conn: any) {
     conn.on('open', () => {
+      console.log('Connection established with peer:', conn.peer);
       this.connections.set(conn.peer, conn);
       this.updatePeerList();
     });
@@ -110,7 +122,7 @@ export class PeerService {
       this.updatePeerList();
     });
     conn.on('error', (err: any) => {
-      console.error('Connection error:', err);
+      console.error('Data connection error:', err);
       this.connections.delete(conn.peer);
       this.updatePeerList();
     });
@@ -121,28 +133,27 @@ export class PeerService {
   }
 
   broadcastVoice(stream: MediaStream) {
-    if (!this.peer || this.peer.destroyed) {
-      console.error('Cannot broadcast: Peer is destroyed');
-      return;
-    }
+    if (!this.peer || this.peer.destroyed) return;
     
+    // Si estamos desconectados del servidor de señalización, intentar reconexión rápida
     if (this.peer.disconnected) {
       this.peer.reconnect();
     }
 
     this.connections.forEach((_conn, peerId) => {
       try {
+        // Limpiar llamadas previas al mismo ID antes de iniciar nueva transmisión
         if (this.calls.has(peerId)) {
-          this.calls.get(peerId).close();
+          try { this.calls.get(peerId).close(); } catch(e) {}
         }
         
         const call = this.peer.call(peerId, stream);
         if (call) {
           this.calls.set(peerId, call);
-          call.on('error', (err: any) => console.error('Broadcast call error:', err));
+          call.on('error', (err: any) => console.error('Call failure:', err));
         }
       } catch (err) {
-        console.error(`Failed to call peer ${peerId}:`, err);
+        console.error(`Uplink failed for peer ${peerId}:`, err);
       }
     });
   }
@@ -155,6 +166,7 @@ export class PeerService {
   }
 
   destroy() {
+    this.isDestroyed = true;
     clearTimeout(this.reconnectTimer);
     this.stopBroadcast();
     if (this.peer) {
@@ -162,5 +174,6 @@ export class PeerService {
       this.peer = null;
     }
     this.connections.clear();
+    console.log('Peer service node destroyed.');
   }
 }

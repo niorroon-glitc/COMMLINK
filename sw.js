@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'commlink-v8.0-stable';
+const CACHE_NAME = 'commlink-v9.0-fix';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +6,8 @@ const ASSETS = [
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js',
   'https://esm.sh/react@18.2.0',
-  'https://esm.sh/react-dom@18.2.0'
+  'https://esm.sh/react-dom@18.2.0',
+  'https://esm.sh/react@18.2.0/jsx-runtime'
 ];
 
 self.addEventListener('install', (e) => {
