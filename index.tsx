@@ -14,7 +14,9 @@ const THEMES: Theme[] = [
   { id: 'military', name: 'Tactical OD', primary: '#1e293b', secondary: '#334155', accent: '#84cc16', background: '#0f172a', text: '#f8fafc', glow: 'rgba(132, 204, 22, 0.5)' },
   { id: 'cyberpunk', name: 'Night City', primary: '#111827', secondary: '#1f2937', accent: '#f472b6', background: '#030712', text: '#ec4899', glow: 'rgba(244, 114, 182, 0.5)' },
   { id: 'stealth', name: 'Ghost Ops', primary: '#18181b', secondary: '#27272a', accent: '#ef4444', background: '#09090b', text: '#ffffff', glow: 'rgba(239, 68, 68, 0.5)' },
-  { id: 'matrix', name: 'The Source', primary: '#022c22', secondary: '#064e3b', accent: '#22c55e', background: '#000000', text: '#4ade80', glow: 'rgba(34, 197, 94, 0.5)' }
+  { id: 'matrix', name: 'The Source', primary: '#022c22', secondary: '#064e3b', accent: '#22c55e', background: '#000000', text: '#4ade80', glow: 'rgba(34, 197, 94, 0.5)' },
+  { id: 'desert', name: 'Desert Storm', primary: '#451a03', secondary: '#78350f', accent: '#f59e0b', background: '#291105', text: '#fbbf24', glow: 'rgba(245, 158, 11, 0.5)' },
+  { id: 'arctic', name: 'Arctic Ops', primary: '#0c4a6e', secondary: '#075985', accent: '#38bdf8', background: '#082f49', text: '#e0f2fe', glow: 'rgba(56, 189, 248, 0.5)' }
 ];
 
 const TRANSLATIONS = {
@@ -22,44 +24,98 @@ const TRANSLATIONS = {
     sector_freq: "FRECUENCIA DE SECTOR",
     transmitting: "TRANSMITIENDO",
     hold_to_comm: "MANTENER PARA HABLAR",
+    latched_on: "MICRO BLOQUEADO",
     ops_config: "CONFIGURACIÓN TÁCTICA",
     back: "REGRESAR",
     callsign_label: "CALLSIGN",
     freq_label: "SALA (6 DÍGITOS)",
     theme_label: "HUD THEME",
+    lang_label: "IDIOMA",
+    audio_fx_label: "EFECTOS",
     node_secured: "NODO SEGURO",
     incoming: "ENTRANTE...",
+    sync_title: "PUENTE QR",
+    scan_btn: "ESCANEAR",
+    hands_free: "MANO ALZADA",
     active_units: "UNIDADES",
-    hands_free: "MANO ALZADA"
+    fx_on: "ACTIVO",
+    fx_off: "SILENCIO"
+  },
+  en: {
+    sector_freq: "SECTOR FREQUENCY",
+    transmitting: "TRANSMITTING",
+    hold_to_comm: "HOLD TO COMM",
+    latched_on: "MIC LATCHED",
+    ops_config: "TACTICAL CONFIG",
+    back: "RETURN",
+    callsign_label: "CALLSIGN",
+    freq_label: "6-DIGIT CODE",
+    theme_label: "HUD THEME",
+    lang_label: "LANGUAGE",
+    audio_fx_label: "EFFECTS",
+    node_secured: "NODE SECURED",
+    incoming: "INCOMING...",
+    sync_title: "QR BRIDGE",
+    scan_btn: "SCAN",
+    hands_free: "HANDS FREE",
+    active_units: "UNITS",
+    fx_on: "ON",
+    fx_off: "OFF"
   }
 };
 
 // --- AUDIO SERVICE ---
 class AudioService {
   private ctx: AudioContext | null = null;
+  public isEnabled: boolean = true;
+
   private initCtx() {
     if (!this.ctx) this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }
-  playBeep(type: 'start' | 'end' | 'receive' | 'click') {
+
+  private createSquelchNoise(duration: number, volume: number) {
     this.initCtx();
     if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    const now = this.ctx.currentTime;
+    const bufferSize = this.ctx.sampleRate * duration;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass'; filter.frequency.value = 1000;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+    source.connect(filter); filter.connect(gainNode); gainNode.connect(this.ctx.destination);
+    source.start();
+  }
+
+  playBeep(type: 'start' | 'end' | 'receive' | 'click') {
+    if (!this.isEnabled && type !== 'click') return;
+    this.initCtx();
+    if (!this.ctx) return;
     if (type === 'start') {
-      osc.frequency.setValueAtTime(880, now);
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(0.1, now + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-      osc.start(now); osc.stop(now + 0.15);
+      this.createSquelchNoise(0.1, 0.1);
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+      g.gain.setValueAtTime(0.1, this.ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+      osc.connect(g); g.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.1);
     } else if (type === 'end') {
-      osc.frequency.setValueAtTime(440, now);
-      g.gain.setValueAtTime(0.1, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-      osc.start(now); osc.stop(now + 0.2);
+      this.createSquelchNoise(0.3, 0.1);
+    } else if (type === 'click') {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+      g.gain.setValueAtTime(0.05, this.ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+      osc.connect(g); g.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.05);
     }
-    osc.connect(g); g.connect(this.ctx.destination);
   }
 }
 const audioService = new AudioService();
@@ -116,7 +172,7 @@ class PeerService {
   destroy() { if (this.peer) this.peer.destroy(); }
 }
 
-// --- APP ---
+// --- APP COMPONENT ---
 const App: React.FC = () => {
   const [identity, setIdentity] = useState<UserIdentity>({ callsign: 'RECLUTA', frequency: '444222' });
   const [theme, setTheme] = useState<Theme>(THEMES[0]);
@@ -168,6 +224,7 @@ const App: React.FC = () => {
   return (
     <div className="relative w-full h-full flex flex-col" style={{ color: theme.text, backgroundColor: theme.background }}>
       <audio ref={audioRef} autoPlay />
+      
       <header className="pt-16 px-10 flex justify-between items-start z-20">
         <div>
           <h1 className="text-3xl font-black italic font-orbitron" style={{ color: theme.accent }}>COMMLINK</h1>
@@ -176,13 +233,17 @@ const App: React.FC = () => {
             <span className="text-[10px] font-black uppercase opacity-70 tracking-widest">{isTX ? t.transmitting : t.node_secured}</span>
           </div>
         </div>
-        <div className="text-right text-[10px] font-black opacity-30 uppercase">{t.active_units}: {peers.length + 1}</div>
+        <div className="text-right text-[10px] font-black opacity-30 uppercase tracking-tighter">
+          {t.active_units}: {peers.length + 1}
+        </div>
       </header>
 
-      <main className="flex-grow flex flex-col items-center justify-center space-y-12 z-10 px-8">
+      <main className="flex-grow flex flex-col items-center justify-center space-y-12 z-10 px-8 text-center">
         <div className="flex flex-col items-center p-8 rounded-2xl border-2 bg-black/40 backdrop-blur-md" style={{ borderColor: theme.accent }}>
           <span className="text-[10px] uppercase opacity-50 mb-2 font-black tracking-[0.4em]">{t.sector_freq}</span>
-          <div className="text-6xl font-black tracking-widest font-orbitron" style={{ color: theme.accent }}>{identity.frequency}</div>
+          <div className="text-6xl font-black tracking-widest font-orbitron" style={{ color: theme.accent }}>
+            {identity.frequency.slice(0,3)}<span className="opacity-20 mx-1">.</span>{identity.frequency.slice(3)}
+          </div>
         </div>
 
         <button 
@@ -220,11 +281,11 @@ const App: React.FC = () => {
           <div className="space-y-8 max-w-md mx-auto w-full">
             <div>
               <label className="text-[10px] font-black opacity-40 block mb-2 uppercase">{t.callsign_label}</label>
-              <input value={identity.callsign} onChange={e => setIdentity({...identity, callsign: e.target.value.toUpperCase()})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl" style={{ borderColor: theme.secondary, color: theme.accent }} />
+              <input value={identity.callsign} onChange={e => setIdentity({...identity, callsign: e.target.value.toUpperCase()})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl outline-none" style={{ borderColor: theme.secondary, color: theme.accent }} />
             </div>
             <div>
               <label className="text-[10px] font-black opacity-40 block mb-2 uppercase">{t.freq_label}</label>
-              <input value={identity.frequency} maxLength={6} onChange={e => setIdentity({...identity, frequency: e.target.value.replace(/\D/g,'')})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl tracking-widest" style={{ borderColor: theme.secondary, color: theme.accent }} />
+              <input value={identity.frequency} maxLength={6} onChange={e => setIdentity({...identity, frequency: e.target.value.replace(/\D/g,'')})} className="w-full bg-black/30 border-2 p-4 text-xl font-black rounded-xl outline-none tracking-widest font-orbitron" style={{ borderColor: theme.secondary, color: theme.accent }} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               {THEMES.map(th => (

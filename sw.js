@@ -1,16 +1,9 @@
-const CACHE_NAME = 'commlink-v17.1-final';
+const CACHE_NAME = 'commlink-v18.0';
 const ASSETS = [
   './',
   './index.html',
   './index.tsx',
-  './manifest.json',
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js',
-  'https://esm.sh/react@18.2.0',
-  'https://esm.sh/react-dom@18.2.0',
-  'https://esm.sh/react-dom@18.2.0/client',
-  'https://esm.sh/react@18.2.0/jsx-runtime',
-  'https://unpkg.com/@babel/standalone/babel.min.js'
+  './manifest.json'
 ];
 
 self.addEventListener('install', (e) => {
