@@ -14,9 +14,7 @@ const THEMES: Theme[] = [
   { id: 'military', name: 'Tactical OD', primary: '#1e293b', secondary: '#334155', accent: '#84cc16', background: '#0f172a', text: '#f8fafc', glow: 'rgba(132, 204, 22, 0.5)' },
   { id: 'cyberpunk', name: 'Night City', primary: '#111827', secondary: '#1f2937', accent: '#f472b6', background: '#030712', text: '#ec4899', glow: 'rgba(244, 114, 182, 0.5)' },
   { id: 'stealth', name: 'Ghost Ops', primary: '#18181b', secondary: '#27272a', accent: '#ef4444', background: '#09090b', text: '#ffffff', glow: 'rgba(239, 68, 68, 0.5)' },
-  { id: 'matrix', name: 'The Source', primary: '#022c22', secondary: '#064e3b', accent: '#22c55e', background: '#000000', text: '#4ade80', glow: 'rgba(34, 197, 94, 0.5)' },
-  { id: 'desert', name: 'Desert Storm', primary: '#451a03', secondary: '#78350f', accent: '#f59e0b', background: '#291105', text: '#fbbf24', glow: 'rgba(245, 158, 11, 0.5)' },
-  { id: 'arctic', name: 'Arctic Ops', primary: '#0c4a6e', secondary: '#075985', accent: '#38bdf8', background: '#082f49', text: '#e0f2fe', glow: 'rgba(56, 189, 248, 0.5)' }
+  { id: 'matrix', name: 'The Source', primary: '#022c22', secondary: '#064e3b', accent: '#22c55e', background: '#000000', text: '#4ade80', glow: 'rgba(34, 197, 94, 0.5)' }
 ];
 
 const TRANSLATIONS = {
@@ -24,98 +22,51 @@ const TRANSLATIONS = {
     sector_freq: "FRECUENCIA DE SECTOR",
     transmitting: "TRANSMITIENDO",
     hold_to_comm: "MANTENER PARA HABLAR",
-    latched_on: "MICRO BLOQUEADO",
+    latched_on: "MICRO BLOQUEADO (LATCHED)",
     ops_config: "CONFIGURACIÓN TÁCTICA",
     back: "REGRESAR",
     callsign_label: "CALLSIGN",
     freq_label: "SALA (6 DÍGITOS)",
     theme_label: "HUD THEME",
-    lang_label: "IDIOMA",
-    audio_fx_label: "EFECTOS",
     node_secured: "NODO SEGURO",
     incoming: "ENTRANTE...",
-    sync_title: "PUENTE QR",
-    scan_btn: "ESCANEAR",
-    hands_free: "MANO ALZADA",
+    hands_free: "MODO MANOS LIBRES",
     active_units: "UNIDADES",
-    fx_on: "ACTIVO",
-    fx_off: "SILENCIO"
-  },
-  en: {
-    sector_freq: "SECTOR FREQUENCY",
-    transmitting: "TRANSMITTING",
-    hold_to_comm: "HOLD TO COMM",
-    latched_on: "MIC LATCHED",
-    ops_config: "TACTICAL CONFIG",
-    back: "RETURN",
-    callsign_label: "CALLSIGN",
-    freq_label: "6-DIGIT CODE",
-    theme_label: "HUD THEME",
-    lang_label: "LANGUAGE",
-    audio_fx_label: "EFFECTS",
-    node_secured: "NODE SECURED",
-    incoming: "INCOMING...",
-    sync_title: "QR BRIDGE",
-    scan_btn: "SCAN",
-    hands_free: "HANDS FREE",
-    active_units: "UNITS",
-    fx_on: "ON",
-    fx_off: "OFF"
+    sync_title: "PUENTE QR"
   }
 };
 
 // --- AUDIO SERVICE ---
 class AudioService {
   private ctx: AudioContext | null = null;
-  public isEnabled: boolean = true;
-
   private initCtx() {
     if (!this.ctx) this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }
-
-  private createSquelchNoise(duration: number, volume: number) {
-    this.initCtx();
-    if (!this.ctx) return;
-    const bufferSize = this.ctx.sampleRate * duration;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass'; filter.frequency.value = 1000;
-    const gainNode = this.ctx.createGain();
-    gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-    source.connect(filter); filter.connect(gainNode); gainNode.connect(this.ctx.destination);
-    source.start();
-  }
-
   playBeep(type: 'start' | 'end' | 'receive' | 'click') {
-    if (!this.isEnabled && type !== 'click') return;
     this.initCtx();
     if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    const now = this.ctx.currentTime;
     if (type === 'start') {
-      this.createSquelchNoise(0.1, 0.1);
-      const osc = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
-      osc.frequency.setValueAtTime(880, this.ctx.currentTime);
-      g.gain.setValueAtTime(0.1, this.ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-      osc.connect(g); g.connect(this.ctx.destination);
-      osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(880, now);
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.1, now + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      osc.start(now); osc.stop(now + 0.15);
     } else if (type === 'end') {
-      this.createSquelchNoise(0.3, 0.1);
+      osc.frequency.setValueAtTime(440, now);
+      g.gain.setValueAtTime(0.1, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.start(now); osc.stop(now + 0.2);
     } else if (type === 'click') {
-      const osc = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
-      osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-      g.gain.setValueAtTime(0.05, this.ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
-      osc.connect(g); g.connect(this.ctx.destination);
-      osc.start(); osc.stop(this.ctx.currentTime + 0.05);
+      osc.frequency.setValueAtTime(1200, now);
+      g.gain.setValueAtTime(0.05, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.start(now); osc.stop(now + 0.05);
     }
+    osc.connect(g); g.connect(this.ctx.destination);
   }
 }
 const audioService = new AudioService();
@@ -179,9 +130,12 @@ const App: React.FC = () => {
   const [peers, setPeers] = useState<string[]>([]);
   const [status, setStatus] = useState<AppState>(AppState.IDLE);
   const [receiving, setReceiving] = useState(false);
+  const [handsFree, setHandsFree] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  
   const peerServiceRef = useRef<PeerService | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const t = TRANSLATIONS.es;
 
   useEffect(() => {
@@ -189,8 +143,8 @@ const App: React.FC = () => {
       setStatus(AppState.CONNECTING);
       const ps = new PeerService(
         setPeers,
-        (s) => { setReceiving(true); audioService.playBeep('receive'); if (audioRef.current) audioRef.current.srcObject = s; },
-        () => { setReceiving(false); audioService.playBeep('end'); }
+        (s) => { setReceiving(true); if (audioRef.current) audioRef.current.srcObject = s; },
+        () => { setReceiving(false); }
       );
       try {
         await ps.initialize(identity.frequency, identity.callsign);
@@ -206,10 +160,11 @@ const App: React.FC = () => {
     if (status === AppState.TRANSMITTING || receiving) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       setStatus(AppState.TRANSMITTING);
       audioService.playBeep('start');
       peerServiceRef.current?.broadcastVoice(stream);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setHandsFree(false); }
   };
 
   const txEnd = () => {
@@ -217,6 +172,17 @@ const App: React.FC = () => {
     setStatus(AppState.READY);
     audioService.playBeep('end');
     peerServiceRef.current?.stopBroadcast();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const toggleHandsFree = () => {
+    audioService.playBeep('click');
+    const newState = !handsFree;
+    setHandsFree(newState);
+    if (newState) txStart(); else txEnd();
   };
 
   const isTX = status === AppState.TRANSMITTING;
@@ -238,7 +204,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-grow flex flex-col items-center justify-center space-y-12 z-10 px-8 text-center">
+      <main className="flex-grow flex flex-col items-center justify-center space-y-10 z-10 px-8 text-center">
         <div className="flex flex-col items-center p-8 rounded-2xl border-2 bg-black/40 backdrop-blur-md" style={{ borderColor: theme.accent }}>
           <span className="text-[10px] uppercase opacity-50 mb-2 font-black tracking-[0.4em]">{t.sector_freq}</span>
           <div className="text-6xl font-black tracking-widest font-orbitron" style={{ color: theme.accent }}>
@@ -246,22 +212,37 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <button 
-          onMouseDown={txStart} onMouseUp={txEnd}
-          onTouchStart={(e) => { e.preventDefault(); txStart(); }}
-          onTouchEnd={(e) => { e.preventDefault(); txEnd(); }}
-          className={`relative w-56 h-56 rounded-full border-[12px] flex flex-col items-center justify-center transition-all ${isTX ? 'scale-105' : 'active:scale-95'}`}
-          style={{ 
-            borderColor: isTX ? theme.accent : theme.secondary, 
-            backgroundColor: isTX ? theme.primary : theme.secondary,
-            boxShadow: isTX ? `0 0 40px ${theme.glow}` : 'none'
-          }}
-        >
-          <svg className={`w-16 h-16 ${isTX ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-          </svg>
-          <span className="mt-4 text-[10px] font-black uppercase tracking-widest">{isTX ? t.transmitting : t.hold_to_comm}</span>
-        </button>
+        <div className="relative flex flex-col items-center space-y-6">
+          <button 
+            onMouseDown={!handsFree ? txStart : undefined} 
+            onMouseUp={!handsFree ? txEnd : undefined}
+            onTouchStart={(e) => { if (!handsFree) { e.preventDefault(); txStart(); } }}
+            onTouchEnd={(e) => { if (!handsFree) { e.preventDefault(); txEnd(); } }}
+            className={`relative w-56 h-56 rounded-full border-[12px] flex flex-col items-center justify-center transition-all ${isTX ? 'scale-105' : 'active:scale-95'}`}
+            style={{ 
+              borderColor: isTX ? (handsFree ? '#f97316' : theme.accent) : theme.secondary, 
+              backgroundColor: isTX ? theme.primary : theme.secondary,
+              boxShadow: isTX ? `0 0 40px ${handsFree ? 'rgba(249, 115, 22, 0.4)' : theme.glow}` : 'none'
+            }}
+          >
+            <svg className={`w-16 h-16 ${isTX ? 'animate-pulse text-white' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <span className="mt-4 text-[10px] font-black uppercase tracking-widest" style={{ color: isTX ? '#fff' : theme.text }}>
+              {handsFree ? t.latched_on : (isTX ? t.transmitting : t.hold_to_comm)}
+            </span>
+          </button>
+
+          {/* Botón Hands-Free */}
+          <button 
+            onClick={toggleHandsFree}
+            className={`flex items-center space-x-3 px-6 py-3 rounded-full border-2 transition-all ${handsFree ? 'bg-orange-500/20 animate-pulse' : 'bg-black/40 opacity-40'}`}
+            style={{ borderColor: handsFree ? '#f97316' : theme.secondary }}
+          >
+            <div className={`w-3 h-3 rounded-full ${handsFree ? 'bg-orange-500 shadow-[0_0_10px_orange]' : 'bg-gray-600'}`} />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t.hands_free} {handsFree ? 'ON' : 'OFF'}</span>
+          </button>
+        </div>
       </main>
 
       <footer className="p-12 flex justify-between items-center z-20">
