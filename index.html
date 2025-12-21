@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
-  <!-- Infraestructura de Grado Militar -->
+  <!-- Librerías Externas -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -84,7 +84,7 @@
   <div id="root">
     <div class="w-full h-full flex flex-col items-center justify-center space-y-4">
       <div class="w-12 h-12 border-4 border-lime-500/20 border-t-lime-500 rounded-full animate-spin"></div>
-      <div class="text-[10px] font-black text-lime-500 uppercase tracking-[0.3em] animate-pulse">Sincronizando Uplink...</div>
+      <div class="text-[10px] font-black text-lime-500 uppercase tracking-[0.3em] animate-pulse">Sincronizando Sistemas...</div>
     </div>
   </div>
   
@@ -96,14 +96,14 @@
         const isSandbox = window.location.hostname.includes('usercontent.goog') || window.location.hostname.includes('ai.studio');
         if (!isSandbox) {
           navigator.serviceWorker.register('./sw.js', { scope: './' })
-            .then(reg => console.log('SW Registered'))
-            .catch(err => console.warn('SW registration skipped'));
+            .then(reg => console.log('SW Operativo'))
+            .catch(err => console.warn('SW ignorado en este entorno'));
         }
       });
     }
 
     window.onerror = function(msg, url, line) {
-      console.error("Runtime Exception:", msg, "\nSource:", url, "L:", line);
+      console.error("Error Crítico:", msg, "\nOrigen:", url, "Línea:", line);
       return false;
     };
   </script>
